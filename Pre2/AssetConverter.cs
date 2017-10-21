@@ -19,6 +19,8 @@ namespace Pre2
             ConvertIndex4("./raw/MAP.BIN",      "./res/map.pal",      "./out/MAP.png",      640, 200);
             ConvertIndex4("./raw/MENU2.BIN",    "./res/menu2.pal",    "./out/MENU2.png",    320, 200);
             ConvertIndex4("./raw/MOTIF.BIN",    "./res/motif.pal",    "./out/MOTIF.png",    320, 200);
+
+            ConvertDevPhoto("./raw/LEVELH.bin", "./raw/LEVELI.bin", "./out/LEVELHI.png");
         }
 
         private static void ConvertIndex8WithPalette(string srcFilename, string destFilename)
@@ -60,6 +62,38 @@ namespace Pre2
                 PngChunkPLTE palette = pngw.GetMetadata().CreatePLTEChunk();
                 FillPalette(palette, numPaletteEntries, pal);
                 byte[] row = new byte[numBytesRow];
+                for (var i = 0; i < imi.Rows; i++)
+                {
+                    Array.Copy(indexBytes, i * numBytesRow, row, 0, numBytesRow);
+                    pngw.WriteRowByte(row, i);
+                }
+                pngw.End();
+            }
+        }
+
+        private static void ConvertDevPhoto(string srcFilenameH, string srcFilenameI, string destFilename)
+        {
+            const int width = 640;
+            const int height = 480; //input height is 415, need to pad the remaining lines
+
+            byte[] planes01 = File.ReadAllBytes(srcFilenameH);
+            byte[] planes02 = File.ReadAllBytes(srcFilenameI);
+            byte[] planes = new byte[planes01.Length + planes02.Length];
+            Array.Copy(planes01, 0, planes, 0, planes01.Length);
+            Array.Copy(planes02, 0, planes, planes01.Length, planes02.Length);
+
+            const int numBytesRow = (width / 8) * 4; // 4 bpp
+            const int numBytesOutput = numBytesRow * height;
+            byte[] indexBytes = ConvertPlanarIndex4Bytes(planes, numBytesOutput); // the rows not present in the original picture will be zeroes
+
+            //const int numPaletteEntries = 16;
+
+            byte[] row = new byte[numBytesRow];
+            using (FileStream output = File.Create(destFilename))
+            {
+                // TODO: check it's okay to omit palette
+                ImageInfo imi = new ImageInfo(width, height, 4, false, true, false);
+                PngWriter pngw = new PngWriter(output, imi);
                 for (var i = 0; i < imi.Rows; i++)
                 {
                     Array.Copy(indexBytes, i * numBytesRow, row, 0, numBytesRow);
