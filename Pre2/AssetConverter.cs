@@ -7,6 +7,8 @@ namespace Pre2
 {
     public static class AssetConverter
     {
+        private static readonly byte[][] LevelPalettes = ReadLevelPalettes("./res/levels.pals");
+
         public static void PrepareAllAssets()
         {
             ConvertIndex8WithPalette(SqzUnpacker.Unpack("./sqz/CASTLE.SQZ"), "./out/CASTLE.png");
@@ -45,10 +47,12 @@ namespace Pre2
         {
             ImageInfo imi = new ImageInfo(320, 200, 8, false, false, true);
             const int numPaletteEntries = 256;
+            byte[] pal = new byte[numPaletteEntries * 3];
+            input.Read(pal, 0, pal.Length);
 
             PngWriter pngw = new PngWriter(output, imi);
             PngChunkPLTE palette = pngw.GetMetadata().CreatePLTEChunk();
-            FillPalette(palette, numPaletteEntries, input);
+            FillPalette(palette, numPaletteEntries, pal);
             byte[] row = new byte[imi.BytesPerRow];
             for (var i = 0; i < imi.Rows; i++)
             {
@@ -67,8 +71,8 @@ namespace Pre2
             byte[] indexBytes = ConvertPlanarIndex4Bytes(rawData, numBytesOutput);
 
             const int numPaletteEntries = 16;
-            using (FileStream pal = File.OpenRead(paletteFilename),
-                              output = File.Create(destFilename))
+            byte[] pal = File.ReadAllBytes(paletteFilename);
+            using (FileStream output = File.Create(destFilename))
             {
                 PngWriter pngw = new PngWriter(output, imi);
                 PngChunkPLTE palette = pngw.GetMetadata().CreatePLTEChunk();
@@ -114,6 +118,23 @@ namespace Pre2
             }
         }
 
+        private static byte[][] ReadLevelPalettes(string srcFilename)
+        {
+            const int numLevelPalettes = 13;
+            const int bytesPerPalette = 3 * 16;
+            byte[][] palettes = new byte[numLevelPalettes][];
+            using (FileStream input = File.OpenRead(srcFilename))
+            {
+                for (var i = 0; i < numLevelPalettes; i++)
+                {
+                    byte[] palette = new byte[bytesPerPalette];
+                    input.Read(palette, 0, bytesPerPalette);
+                    palettes[i] = palette;
+                }
+            }
+            return palettes;
+        }
+
         private static int ConvertVgaToRgb(int sixBitValue)
         {
             sixBitValue &= 0x3F; // make sure it's really 6-bit value
@@ -123,14 +144,14 @@ namespace Pre2
             return eightBitValue;
         }
 
-        private static void FillPalette(PngChunkPLTE palette, int numEntries, Stream input)
+        private static void FillPalette(PngChunkPLTE palette, int numEntries, byte[] vgaPalette)
         {
             palette.SetNentries(numEntries);
             for (var i = 0; i < numEntries; i++)
             {
-                int r = ConvertVgaToRgb(input.ReadByte());
-                int g = ConvertVgaToRgb(input.ReadByte());
-                int b = ConvertVgaToRgb(input.ReadByte());
+                int r = ConvertVgaToRgb(vgaPalette[i * 3 + 0]);
+                int g = ConvertVgaToRgb(vgaPalette[i * 3 + 1]);
+                int b = ConvertVgaToRgb(vgaPalette[i * 3 + 2]);
                 palette.SetEntry(i, r, g, b);
             }
         }
