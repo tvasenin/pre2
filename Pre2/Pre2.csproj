@@ -36,6 +36,8 @@
     <None Include="App.config" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="AssetConverter.cs" />
+    <Compile Include="Pre2.cs" />
     <Compile Include="Tilengine.cs" />
   </ItemGroup>
   <ItemGroup>
@@ -51,6 +53,7 @@
     <Reference Include="Pngcs, Version=1.1.4.1, Culture=neutral, processorArchitecture=MSIL">
       <HintPath>.\Pngcs.dll</HintPath>
     </Reference>
+    <Reference Include="System" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>
