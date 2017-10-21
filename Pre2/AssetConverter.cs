@@ -43,15 +43,13 @@ namespace Pre2
 
         private static void ConvertIndex8WithPalette(Stream input, Stream output)
         {
-            const int width = 320;
-            const int height = 200;
+            ImageInfo imi = new ImageInfo(320, 200, 8, false, false, true);
             const int numPaletteEntries = 256;
 
-            ImageInfo imi = new ImageInfo(width, height, 8, false, false, true);
             PngWriter pngw = new PngWriter(output, imi);
             PngChunkPLTE palette = pngw.GetMetadata().CreatePLTEChunk();
             FillPalette(palette, numPaletteEntries, input);
-            byte[] row = new byte[width];
+            byte[] row = new byte[imi.BytesPerRow];
             for (var i = 0; i < imi.Rows; i++)
             {
                 input.Read(row, 0, row.Length);
@@ -62,8 +60,9 @@ namespace Pre2
 
         private static void ConvertIndex4(string srcFilename, string paletteFilename, string destFilename, int width, int height)
         {
-            int numBytesRow = (width / 8) * 4; // 4 bpp
-            int numBytesOutput = numBytesRow * height;
+            ImageInfo imi = new ImageInfo(width, height, 4, false, false, true);
+            int numBytesRow = imi.BytesPerRow;
+            int numBytesOutput = numBytesRow * imi.Rows;
             byte[] rawData = File.ReadAllBytes(srcFilename);
             byte[] indexBytes = ConvertPlanarIndex4Bytes(rawData, numBytesOutput);
 
@@ -71,7 +70,6 @@ namespace Pre2
             using (FileStream pal = File.OpenRead(paletteFilename),
                               output = File.Create(destFilename))
             {
-                ImageInfo imi = new ImageInfo(width, height, 4, false, false, true);
                 PngWriter pngw = new PngWriter(output, imi);
                 PngChunkPLTE palette = pngw.GetMetadata().CreatePLTEChunk();
                 FillPalette(palette, numPaletteEntries, pal);
@@ -87,8 +85,8 @@ namespace Pre2
 
         private static void ConvertDevPhoto(string srcFilenameH, string srcFilenameI, string destFilename)
         {
-            const int width = 640;
-            const int height = 480; //input height is 415, need to pad the remaining lines
+            //input height is 415, need to pad the remaining lines
+            ImageInfo imi = new ImageInfo(640, 480, 4, false, true, false);
 
             byte[] planes01 = File.ReadAllBytes(srcFilenameH);
             byte[] planes02 = File.ReadAllBytes(srcFilenameI);
@@ -96,8 +94,8 @@ namespace Pre2
             Array.Copy(planes01, 0, planes, 0, planes01.Length);
             Array.Copy(planes02, 0, planes, planes01.Length, planes02.Length);
 
-            const int numBytesRow = (width / 8) * 4; // 4 bpp
-            const int numBytesOutput = numBytesRow * height;
+            int numBytesRow = imi.BytesPerRow;
+            int numBytesOutput = numBytesRow * imi.Rows;
             byte[] indexBytes = ConvertPlanarIndex4Bytes(planes, numBytesOutput); // the rows not present in the original picture will be zeroes
 
             //const int numPaletteEntries = 16;
@@ -106,7 +104,6 @@ namespace Pre2
             using (FileStream output = File.Create(destFilename))
             {
                 // TODO: check it's okay to omit palette
-                ImageInfo imi = new ImageInfo(width, height, 4, false, true, false);
                 PngWriter pngw = new PngWriter(output, imi);
                 for (var i = 0; i < imi.Rows; i++)
                 {
