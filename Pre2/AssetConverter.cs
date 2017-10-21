@@ -9,10 +9,10 @@ namespace Pre2
     {
         public static void PrepareAllAssets()
         {
-            ConvertIndex8WithPalette("./raw/CASTLE.raw", "./out/CASTLE.png");
-            ConvertIndex8WithPalette("./raw/MENU.BIN",   "./out/MENU.png");
-            ConvertIndex8WithPalette("./raw/THEEND.raw", "./out/THEEND.png");
-            ConvertIndex8WithPalette("./raw/TITUS.raw",  "./out/TITUS.png");
+            ConvertIndex8WithPalette(SqzUnpacker.Unpack("./sqz/CASTLE.SQZ"), "./out/CASTLE.png");
+            ConvertIndex8WithPalette("./raw/MENU.BIN", "./out/MENU.png");
+            ConvertIndex8WithPalette(SqzUnpacker.Unpack("./sqz/THEEND.SQZ"), "./out/THEEND.png");
+            ConvertIndex8WithPalette(SqzUnpacker.Unpack("./sqz/TITUS.SQZ"),  "./out/TITUS.png");
 
             // Palette for MENU2 is concatenated at the end of the image (using a copy for convenience)!
             ConvertIndex4("./raw/GAMEOVER.BIN", "./res/gameover.pal", "./out/GAMEOVER.png", 320, 200);
@@ -23,27 +23,41 @@ namespace Pre2
             ConvertDevPhoto("./raw/LEVELH.bin", "./raw/LEVELI.bin", "./out/LEVELHI.png");
         }
 
+        private static void ConvertIndex8WithPalette(byte[] data, string destFilename)
+        {
+            using (Stream input = new MemoryStream(data),
+                          output = File.Create(destFilename))
+            {
+                ConvertIndex8WithPalette(input, output);
+            }
+        }
+
         private static void ConvertIndex8WithPalette(string srcFilename, string destFilename)
+        {
+            using (FileStream input = File.OpenRead(srcFilename),
+                              output = File.Create(destFilename))
+            {
+                ConvertIndex8WithPalette(input, output);
+            }
+        }
+
+        private static void ConvertIndex8WithPalette(Stream input, Stream output)
         {
             const int width = 320;
             const int height = 200;
             const int numPaletteEntries = 256;
 
-            using (FileStream input = File.OpenRead(srcFilename),
-                              output = File.Create(destFilename))
+            ImageInfo imi = new ImageInfo(width, height, 8, false, false, true);
+            PngWriter pngw = new PngWriter(output, imi);
+            PngChunkPLTE palette = pngw.GetMetadata().CreatePLTEChunk();
+            FillPalette(palette, numPaletteEntries, input);
+            byte[] row = new byte[width];
+            for (var i = 0; i < imi.Rows; i++)
             {
-                ImageInfo imi = new ImageInfo(width, height, 8, false, false, true);
-                PngWriter pngw = new PngWriter(output, imi);
-                PngChunkPLTE palette = pngw.GetMetadata().CreatePLTEChunk();
-                FillPalette(palette, numPaletteEntries, input);
-                byte[] row = new byte[width];
-                for (var i = 0; i < imi.Rows; i++)
-                {
-                    input.Read(row, 0, row.Length);
-                    pngw.WriteRowByte(row, i);
-                }
-                pngw.End();
+                input.Read(row, 0, row.Length);
+                pngw.WriteRowByte(row, i);
             }
+            pngw.End();
         }
 
         private static void ConvertIndex4(string srcFilename, string paletteFilename, string destFilename, int width, int height)

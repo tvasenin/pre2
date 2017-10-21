@@ -50,6 +50,7 @@
   <ItemGroup>
     <Compile Include="AssetConverter.cs" />
     <Compile Include="Pre2.cs" />
+    <Compile Include="SqzUnpacker.cs" />
     <Compile Include="Tilengine.cs" />
   </ItemGroup>
   <ItemGroup>
