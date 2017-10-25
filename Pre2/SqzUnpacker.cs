@@ -45,7 +45,25 @@ namespace Pre2
                         throw new FormatException("Not a DIET file!");
                     }
                 }
-                throw new NotImplementedException();
+
+                // TODO: Figure out the checksum algorithm and meaning of b09
+                /*byte b09 = */
+                br.ReadByte();
+                /*int maybeChecksum = */
+                br.ReadInt32();
+
+                int payloadSizeHi = (br.ReadByte() >> 2) & 0x1F; // bits 0-1 and 7 are not used (at least for size)
+                int payloadSizeLo = br.ReadUInt16();
+                int payloadSize = (payloadSizeHi << 16) | payloadSizeLo;
+
+                byte[] payload = new byte[payloadSize];
+                // data starts at byte 17 (0x11)
+                int decodedSize = DecodeDiet(br, payload);
+                if (decodedSize != payloadSize)
+                {
+                    throw new InvalidDataException("Invalid decoded data length (maybe try altlzw?)");
+                }
+                return payload;
             }
         }
 
@@ -299,6 +317,151 @@ namespace Pre2
                     }
                 }
             }
+        }
+
+        private class DietBitReader
+        {
+            private int bit;
+            private int currentWord;
+            private readonly BinaryReader br;
+
+            public DietBitReader(BinaryReader br)
+            {
+                this.br = br;
+                currentWord = br.ReadUInt16();
+                bit = 0;
+            }
+
+            public bool ReadBit()
+            {
+                int shift = bit;
+                int mask = 1 << shift;
+                bool value = (currentWord & mask) > 0;
+                bit++;
+                if (bit == 16)
+                {
+                    currentWord = br.ReadUInt16();
+                    bit = 0;
+                }
+                return value;
+            }
+
+            public int Read3BitValue()
+            {
+                int value = 0;
+                for (var i = 0; i < 3; i++)
+                {
+                    value = (value << 1) | (ReadBit() ? 1 : 0);
+                }
+                return value;
+            }
+
+            public byte ReadNextByte()
+            {
+                // Do not touch the bit buffer!
+                return br.ReadByte();
+            }
+        }
+
+        private static int DecodeDiet(BinaryReader br, byte[] output)
+        {
+            DietBitReader bitReader = new DietBitReader(br);
+            int idx = 0;
+            while (true)
+            {
+                while (bitReader.ReadBit())
+                {
+                    // advance without resetting bitbuffer!
+                    output[idx++] = bitReader.ReadNextByte();
+                }
+                bool bit = bitReader.ReadBit();
+                byte offLo = bitReader.ReadNextByte();
+                byte offHi;
+                int repeatCount;
+                if (!bit)
+                {
+                    if (bitReader.ReadBit())
+                    {
+                        offHi = (byte) (0xF8 | bitReader.Read3BitValue());
+                        offHi--;
+                    }
+                    else
+                    {
+                        offHi = 0xFF;
+                        if (offLo == 0xFF)
+                        {
+                            return idx;
+                        }
+                    }
+                    repeatCount = 2;
+                }
+                else
+                {
+                    offHi = ReadHiByteVarlen(bitReader);
+                    repeatCount = 2 + ReadRepeatCountVarlen(bitReader);
+                }
+                int offset = (short) ((offHi << 8) | offLo); // always negative!
+                int sourceIdx = idx + offset;
+                for (var i = 0; i < repeatCount; i++)
+                {
+                    output[idx++] = output[sourceIdx++];
+                }
+            }
+        }
+
+        private static int ReadRepeatCountVarlen(DietBitReader bitReader)
+        {
+            int count = 0;
+            for (var i = 0; i < 4; i++)
+            {
+                count++;
+                if (bitReader.ReadBit())
+                {
+                    return count; // 1-4
+                }
+            }
+            if (bitReader.ReadBit())
+            {
+                return bitReader.ReadBit() ? 6 : 5; // 5-6
+            }
+            else
+            {
+                if (!bitReader.ReadBit())
+                {
+                    return 7 + bitReader.Read3BitValue(); // 7-14
+                }
+                else
+                {
+                    return 15 + bitReader.ReadNextByte(); // 15-270
+                }
+            }
+        }
+
+        private static byte ShiftLeftAddBit(byte b, bool bit)
+        {
+            // emulate "RCL b,1  with CF=bit"
+            return (byte) (b << 1 | (bit ? 1 : 0));
+        }
+
+        private static byte ReadHiByteVarlen(DietBitReader bitReader)
+        {
+            byte b = 0xFF;
+            b = ShiftLeftAddBit(b, bitReader.ReadBit());
+            if (!bitReader.ReadBit())
+            {
+                byte tmp = 1 << 1;
+                for (var i = 0; i < 3; i++)
+                {
+                    if (bitReader.ReadBit())
+                    {
+                        break;
+                    }
+                    b = ShiftLeftAddBit(b, bitReader.ReadBit());
+                    tmp <<= 1;
+                }
+                b -= tmp;
+            }
+            return b;
         }
     }
 }

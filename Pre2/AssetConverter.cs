@@ -12,32 +12,23 @@ namespace Pre2
         public static void PrepareAllAssets()
         {
             ConvertIndex8WithPalette(SqzUnpacker.Unpack("./sqz/CASTLE.SQZ"), "./out/CASTLE.png");
-            ConvertIndex8WithPalette("./raw/MENU.BIN", "./out/MENU.png");
+            ConvertIndex8WithPalette(SqzUnpacker.Unpack("./sqz/MENU.SQZ"),   "./out/MENU.png");
             ConvertIndex8WithPalette(SqzUnpacker.Unpack("./sqz/THEEND.SQZ"), "./out/THEEND.png");
             ConvertIndex8WithPalette(SqzUnpacker.Unpack("./sqz/TITUS.SQZ"),  "./out/TITUS.png");
 
             // Palette for MENU2 is concatenated at the end of the image (using a copy for convenience)!
-            ConvertIndex4("./raw/GAMEOVER.BIN", "./res/gameover.pal", "./out/GAMEOVER.png", 320, 200);
-            ConvertIndex4("./raw/MAP.BIN",      "./res/map.pal",      "./out/MAP.png",      640, 200);
-            ConvertIndex4("./raw/MENU2.BIN",    "./res/menu2.pal",    "./out/MENU2.png",    320, 200);
-            ConvertIndex4("./raw/MOTIF.BIN",    "./res/motif.pal",    "./out/MOTIF.png",    320, 200);
+            ConvertIndex4(SqzUnpacker.Unpack("./sqz/GAMEOVER.SQZ"), "./res/gameover.pal", "./out/GAMEOVER.png", 320, 200);
+            ConvertIndex4(SqzUnpacker.Unpack("./sqz/MAP.SQZ"),      "./res/map.pal",      "./out/MAP.png",      640, 200);
+            ConvertIndex4(SqzUnpacker.Unpack("./sqz/MENU2.SQZ"),    "./res/menu2.pal",    "./out/MENU2.png",    320, 200);
+            ConvertIndex4(SqzUnpacker.Unpack("./sqz/MOTIF.SQZ"),    "./res/motif.pal",    "./out/MOTIF.png",    320, 200);
 
-            ConvertDevPhoto("./raw/LEVELH.bin", "./raw/LEVELI.bin", "./out/LEVELHI.png");
+            ConvertDevPhoto(SqzUnpacker.Unpack("./sqz/LEVELH.SQZ"), SqzUnpacker.Unpack("./sqz/LEVELI.SQZ"), "./out/LEVELHI.png");
         }
 
         private static void ConvertIndex8WithPalette(byte[] data, string destFilename)
         {
             using (Stream input = new MemoryStream(data),
                           output = File.Create(destFilename))
-            {
-                ConvertIndex8WithPalette(input, output);
-            }
-        }
-
-        private static void ConvertIndex8WithPalette(string srcFilename, string destFilename)
-        {
-            using (FileStream input = File.OpenRead(srcFilename),
-                              output = File.Create(destFilename))
             {
                 ConvertIndex8WithPalette(input, output);
             }
@@ -62,12 +53,11 @@ namespace Pre2
             pngw.End();
         }
 
-        private static void ConvertIndex4(string srcFilename, string paletteFilename, string destFilename, int width, int height)
+        private static void ConvertIndex4(byte[] rawData, string paletteFilename, string destFilename, int width, int height)
         {
             ImageInfo imi = new ImageInfo(width, height, 4, false, false, true);
             int numBytesRow = imi.BytesPerRow;
             int numBytesOutput = numBytesRow * imi.Rows;
-            byte[] rawData = File.ReadAllBytes(srcFilename);
             byte[] indexBytes = ConvertPlanarIndex4Bytes(rawData, numBytesOutput);
 
             const int numPaletteEntries = 16;
@@ -87,13 +77,11 @@ namespace Pre2
             }
         }
 
-        private static void ConvertDevPhoto(string srcFilenameH, string srcFilenameI, string destFilename)
+        private static void ConvertDevPhoto(byte[] planes01, byte[] planes02, string destFilename)
         {
             //input height is 415, need to pad the remaining lines
             ImageInfo imi = new ImageInfo(640, 480, 4, false, true, false);
 
-            byte[] planes01 = File.ReadAllBytes(srcFilenameH);
-            byte[] planes02 = File.ReadAllBytes(srcFilenameI);
             byte[] planes = new byte[planes01.Length + planes02.Length];
             Array.Copy(planes01, 0, planes, 0, planes01.Length);
             Array.Copy(planes02, 0, planes, planes01.Length, planes02.Length);
