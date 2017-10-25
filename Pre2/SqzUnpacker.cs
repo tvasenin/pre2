@@ -34,14 +34,16 @@ namespace Pre2
 
         private static byte[] UnpackDiet(string filename)
         {
+            byte[] dietSignature = { 0xB4, 0x4C, 0xCD, 0x21, 0x9D, 0x89, 0x64, 0x6C, 0x7A };
             using (BinaryReader br = new BinaryReader(File.OpenRead(filename)))
             {
-                UInt16 dietSignature1 = br.ReadUInt16();
-                UInt16 dietSignature2 = br.ReadUInt16();
-                UInt16 dietSignature3 = br.ReadUInt16();
-                if (dietSignature1 != 0x4CB4 || dietSignature2 != 0x899D || dietSignature3 != 0x6C64)
+                for (var i = 0; i < dietSignature.Length; i++)
                 {
-                    throw new FormatException("Not a DIET file!");
+                    byte b = br.ReadByte();
+                    if (b != dietSignature[i])
+                    {
+                        throw new FormatException("Not a DIET file!");
+                    }
                 }
                 throw new NotImplementedException();
             }
