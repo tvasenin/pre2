@@ -126,9 +126,9 @@ namespace Pre2
         private static int ConvertVgaToRgb(int sixBitValue)
         {
             sixBitValue &= 0x3F; // make sure it's really 6-bit value
-            // 6-bit VGA to 8-bit RGB
-            int eightBitValue = (sixBitValue * 255) / 63;
-            //int eightBitValue = (sixBitValue << 2) | (sixBitValue >> 4);
+            // 6-bit VGA to 8-bit RGB, approximation to Round(sixBitValue * 255 / 63)
+            //int eightBitValue = (sixBitValue * 255) / 63; // quite bad
+            int eightBitValue = (sixBitValue << 2) | (sixBitValue >> 4); // almost correct
             return eightBitValue;
         }
 
