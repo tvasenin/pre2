@@ -2,12 +2,24 @@
 using Hjg.Pngcs.Chunks;
 using System;
 using System.IO;
+using System.IO.Compression;
+using System.Text;
+using System.Xml;
 
 namespace Pre2
 {
     public static class AssetConverter
     {
+        private const int TileSide = 16;
+        private const int LevelTilesPerRow = 256;
+
         private static readonly byte[][] LevelPalettes = ReadLevelPalettes("./res/levels.pals");
+
+        private static readonly char[] LevelSuffixes = {  '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F', 'G'};
+        private static readonly byte[] LevelNumRows  = {  49, 104,  49,  45, 128, 128, 128,  86, 110,  12,  24,  51,  51,  38, 173,  84 };
+        private static readonly byte[] LevelPals     = {   8,  10,   7,   6,   3,   5,   1,   4,   2,   2,  11,  11,  11,  12,   2,   1 }; // no pal #0 and #9!
+
+        private static readonly byte[][] UnionTiles = ReadTiles(SqzUnpacker.Unpack("./sqz/UNION.SQZ"), 544);
 
         public static void PrepareAllAssets()
         {
@@ -23,6 +35,13 @@ namespace Pre2
             ConvertIndex4(SqzUnpacker.Unpack("./sqz/MOTIF.SQZ"),    "./res/motif.pal",    "./out/MOTIF.png",    320, 200);
 
             ConvertDevPhoto(SqzUnpacker.Unpack("./sqz/LEVELH.SQZ"), SqzUnpacker.Unpack("./sqz/LEVELI.SQZ"), "./out/LEVELHI.png");
+
+            GenerateTileSet(UnionTiles, LevelPalettes[0], 32, "./out", "UNION"); // first palette!
+
+            for (var i = 0; i < 16; i++)
+            {
+                GenerateLevelTilemap(i, "./sqz", "./out");
+            }
         }
 
         private static void ConvertIndex8WithPalette(byte[] data, string destFilename)
@@ -104,6 +123,267 @@ namespace Pre2
                 }
                 pngw.End();
             }
+        }
+
+        private static void GenerateLevelTilemap(int idx, string sqzPath, string outPath)
+        {
+            char suffix = LevelSuffixes[idx];
+            byte[] data = SqzUnpacker.Unpack(Path.Combine(sqzPath, "LEVEL" + suffix + ".SQZ"));
+            byte[] pal = LevelPalettes[0]; // TODO: Use actual palettes
+            GenerateLevelTilemapImpl(data, pal, LevelNumRows[idx], outPath, "LEVEL" + suffix);
+        }
+
+        private static void GenerateLevelTilemapImpl(byte[] data, byte[] pal, int numTileRows, string outPath, string outName)
+        {
+            string baseFilename = Path.Combine(outPath, outName);
+
+            byte[][] localTiles;
+            byte[] tilemap;
+            short[] lut = new short[256];
+            using (BinaryReader br = new BinaryReader(new MemoryStream(data, false)))
+            {
+                tilemap = br.ReadBytes(numTileRows * LevelTilesPerRow);
+                short maxLocalIdx = 0;
+                for (var i = 0; i < lut.Length; i++)
+                {
+                    short v = br.ReadInt16();
+                    lut[i] = v;
+                    if (v < 256 && v > maxLocalIdx)
+                    {
+                        maxLocalIdx = v;
+                    }
+                }
+                localTiles = ReadTiles(br.BaseStream, maxLocalIdx + 1);
+            }
+
+            GenerateTileSet(localTiles, pal, 32, outPath, outName); // TODO: fix the palette!
+
+            short[] gidMap = new short[tilemap.Length];
+            for (var i = 0; i < gidMap.Length; i++)
+            {
+                short tileIdx = lut[tilemap[i]];
+                // replace first union tile with an empty-by-convention tile
+                gidMap[i] = (short) (tileIdx == 256 ? 0 : (tileIdx + 1));
+            }
+
+            XmlWriterSettings settings = new XmlWriterSettings
+            {
+                Indent = true,
+                Encoding = new UTF8Encoding(false)
+            };
+
+            using (XmlWriter writer = XmlWriter.Create(baseFilename + ".tmx", settings))
+            {
+                writer.WriteStartDocument();
+
+                writer.WriteStartElement("map");
+                writer.WriteAttributeString("version", "1.0");
+                writer.WriteAttributeString("orientation", "orthogonal");
+                writer.WriteAttributeString("renderorder", "right-down");
+                writer.WriteAttributeString("width", LevelTilesPerRow.ToString());
+                writer.WriteAttributeString("height", numTileRows.ToString());
+                writer.WriteAttributeString("tilewidth", TileSide.ToString());
+                writer.WriteAttributeString("tileheight", TileSide.ToString());
+
+                writer.WriteStartElement("tileset");
+                writer.WriteAttributeString("firstgid", "1");
+                writer.WriteAttributeString("source", outName + ".tsx");
+                writer.WriteEndElement();
+
+                writer.WriteStartElement("tileset");
+                writer.WriteAttributeString("firstgid", "257");
+                writer.WriteAttributeString("source", "union.tsx");
+                writer.WriteEndElement();
+
+                writer.WriteStartElement("layer");
+                writer.WriteAttributeString("name", "Tiles");
+                writer.WriteAttributeString("width", LevelTilesPerRow.ToString());
+                writer.WriteAttributeString("height", numTileRows.ToString());
+
+                WriteXmlTmxDataAttribute(writer, gidMap, true);
+
+                writer.WriteEndElement();
+
+                writer.WriteEndDocument();
+
+                writer.Flush();
+            }
+        }
+
+        private static void WriteXmlTmxDataAttribute(XmlWriter writer, short[] gidMap, bool compress)
+        {
+            uint Adler32(byte[] bytes)
+            {
+                const uint a32Mod = 0xFFF1;
+                uint s1 = 1, s2 = 0;
+                foreach (byte b in bytes)
+                {
+                    s1 = (s1 + b) % a32Mod;
+                    s2 = (s2 + s1) % a32Mod;
+                }
+                return (s2 << 16) | s1;
+            }
+
+            writer.WriteStartElement("data");
+
+            if (compress)
+            {
+                writer.WriteAttributeString("encoding", "base64");
+                writer.WriteAttributeString("compression", "zlib");
+
+                byte[] map = new byte[gidMap.Length * 4];
+                using (MemoryStream uncompressedStream = new MemoryStream(map))
+                {
+                    using (BinaryWriter bw = new BinaryWriter(uncompressedStream, Encoding.UTF8, true))
+                    {
+                        for (var i = 0; i < gidMap.Length; i++)
+                        {
+                            bw.Write((UInt32)gidMap[i]); // 4-bytes little endian
+                        }
+                    }
+                }
+
+                var compressedStream = new MemoryStream();
+                compressedStream.WriteByte(0x78);
+                compressedStream.WriteByte(0x9C);
+                using (MemoryStream uncompressedStream = new MemoryStream(map))
+                {
+                    using (var compressorStream = new DeflateStream(compressedStream, CompressionMode.Compress, true))
+                    {
+                        uncompressedStream.CopyTo(compressorStream);
+                    }
+                }
+                byte[] checksum = BitConverter.GetBytes(Adler32(map));
+                if (BitConverter.IsLittleEndian)
+                {
+                    Array.Reverse(checksum);
+                }
+                compressedStream.Write(checksum, 0, checksum.Length);
+
+                byte[] compressed = compressedStream.ToArray();
+                writer.WriteBase64(compressed, 0, compressed.Length);
+            }
+            else
+            {
+                writer.WriteAttributeString("encoding", "csv");
+
+                int idx = 0;
+                StringBuilder sb = new StringBuilder();
+                while (idx < gidMap.Length)
+                {
+                    sb.AppendLine();
+                    for (var j = 0; j < LevelTilesPerRow; j++)
+                    {
+                        sb.Append(gidMap[idx++]);
+                        sb.Append(",");
+                    }
+                }
+                sb.Remove(sb.Length - 1, 1); // remove last comma
+                sb.AppendLine();
+                writer.WriteString(sb.ToString());
+            }
+
+            writer.WriteEndElement();
+        }
+
+        private static int DivideWithRoundUp(int x, int y)
+        {
+            return x / y + (x % y > 0 ? 1 : 0);
+        }
+
+        private static void GenerateTileSet(byte[][] tiles, byte[] pal, int tilesPerRow, string outPath, string baseFileName)
+        {
+            const int tileSide = 16;
+
+            int numTiles = tiles.Length;
+            int tilesPerColumn = DivideWithRoundUp(numTiles,tilesPerRow);
+
+            int outWidth = tileSide * tilesPerRow;
+            int outHeight = tileSide * tilesPerColumn;
+
+            ImageInfo tileInfo = new ImageInfo(tileSide, tileSide, 4, false, false, true);
+            int bytesPerTileRow = tileInfo.BytesPerRow;
+            const int numPaletteEntries = 16;
+
+            using (FileStream outPng = File.Create(Path.Combine(outPath, baseFileName) + ".png"))
+            {
+                ImageInfo imi = new ImageInfo(outWidth, outHeight, 4, false, false, true);
+                PngWriter pngw = new PngWriter(outPng, imi);
+                PngChunkPLTE palette = pngw.GetMetadata().CreatePLTEChunk();
+                FillPalette(palette, numPaletteEntries, pal);
+                PngChunkTRNS trns = pngw.GetMetadata().CreateTRNSChunk();
+                trns.setIndexEntryAsTransparent(0);
+                byte[] row = new byte[imi.BytesPerRow];
+                for (var i = 0; i < tilesPerColumn; i++)
+                {
+                    for (var line = 0; line < 16; line++)
+                    {
+                        int offsetInsideTile = line * bytesPerTileRow;
+                        for (var j = 0; j < tilesPerRow; j++)
+                        {
+                            int tileIndex = i * tilesPerRow + j;
+                            if (tileIndex < numTiles)
+                            {
+                                Array.Copy(tiles[tileIndex], offsetInsideTile, row, j * bytesPerTileRow, bytesPerTileRow);
+                            }
+                            else
+                            {
+                                Array.Clear(row, j * bytesPerTileRow, bytesPerTileRow); // fill with zeroes
+                            }
+                        }
+                        pngw.WriteRowByte(row, i * 16 + line);
+                    }
+                }
+                pngw.End();
+            }
+            WriteTsx(baseFileName, outPath, tileSide, outWidth, outHeight);
+        }
+
+        private static void WriteTsx(string baseFilename, string outPath, int tileSide, int outWidth, int outHeight)
+        {
+            string outFilename = Path.Combine(outPath, baseFilename + ".tsx");
+
+            XmlDocument doc = new XmlDocument();
+
+            XmlDeclaration xmlDeclaration = doc.CreateXmlDeclaration("1.0", "UTF-8", null);
+            XmlElement root = doc.DocumentElement;
+            doc.InsertBefore(xmlDeclaration, root);
+
+            XmlElement tileset = doc.CreateElement("tileset");
+            tileset.SetAttribute("name", baseFilename); // set tileset name to the base filename
+            tileset.SetAttribute("tilewidth", tileSide.ToString());
+            tileset.SetAttribute("tileheight", tileSide.ToString());
+            doc.AppendChild(tileset);
+
+            XmlElement image = doc.CreateElement("image");
+            image.SetAttribute("source", baseFilename + ".png");
+            image.SetAttribute("width", outWidth.ToString());
+            image.SetAttribute("height", outHeight.ToString());
+            tileset.AppendChild(image);
+
+            doc.Save(outFilename);
+        }
+
+        private static byte[][] ReadTiles(byte[] rawTiles, int numTiles)
+        {
+            using (Stream input = new MemoryStream(rawTiles, false))
+            {
+                return ReadTiles(input, numTiles);
+            }
+        }
+
+        private static byte[][] ReadTiles(Stream input, int numTiles)
+        {
+            const int tileLength = 16 * 16 / 2;  // 2 pixels per byte
+
+            byte[][] tiles = new byte[numTiles][];
+            byte[] buffer = new byte[tileLength];
+            for (var i = 0; i < numTiles; i++)
+            {
+                input.Read(buffer, 0, tileLength);
+                tiles[i] = ConvertPlanarIndex4Bytes(buffer, tileLength);
+            }
+            return tiles;
         }
 
         private static byte[][] ReadLevelPalettes(string srcFilename)
