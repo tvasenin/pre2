@@ -75,10 +75,10 @@ namespace Pre2
         private static void ConvertIndex4(byte[] rawData, string paletteFilename, string destFilename, int width, int height)
         {
             ImageInfo imiInput = new ImageInfo(width, height, 4, false, false, true);
-            ImageInfo imiPng = new ImageInfo(width, height, 4, false, false, true);
+            ImageInfo imiPng = new ImageInfo(width, height, 8, false, false, true);
             int numBytesRow = imiInput.BytesPerRow;
             int numBytesInput = numBytesRow * imiInput.Rows;
-            byte[] indexBytes = ConvertPlanarIndex4Bytes(rawData, numBytesInput);
+            byte[] indexBytes = ConvertIndex4ToIndex8Bytes(ConvertPlanarIndex4Bytes(rawData, numBytesInput));
 
             const int numPaletteEntries = 16;
             byte[] pal = File.ReadAllBytes(paletteFilename);
@@ -102,7 +102,7 @@ namespace Pre2
         {
             //input height is 415, need to pad the remaining lines
             ImageInfo imiInput = new ImageInfo(640, 480, 4, false, true, false);
-            ImageInfo imiPng = new ImageInfo(640, 480, 4, false, false, true);
+            ImageInfo imiPng = new ImageInfo(640, 480, 8, false, false, true);
 
             byte[] planes = new byte[planes01.Length + planes02.Length];
             Array.Copy(planes01, 0, planes, 0, planes01.Length);
@@ -111,7 +111,7 @@ namespace Pre2
             int numBytesInput = imiInput.BytesPerRow * imiInput.Rows;
 
             // the rows not present in the original picture will be zeroes
-            byte[] indexBytes = ConvertPlanarIndex4Bytes(planes, numBytesInput);
+            byte[] indexBytes = ConvertIndex4ToIndex8Bytes(ConvertPlanarIndex4Bytes(planes, numBytesInput));
 
             // generate greyscale palette (naive way)
             const int numPaletteEntries = 16;
@@ -317,13 +317,13 @@ namespace Pre2
             int outWidth = tileSide * tilesPerRow;
             int outHeight = tileSide * tilesPerColumn;
 
-            ImageInfo tileInfo = new ImageInfo(tileSide, tileSide, 4, false, false, true);
+            ImageInfo tileInfo = new ImageInfo(tileSide, tileSide, 8, false, false, true);
             int bytesPerTileRow = tileInfo.BytesPerRow;
             const int numPaletteEntries = 16;
 
             using (FileStream outPng = File.Create(Path.Combine(outPath, baseFileName) + ".png"))
             {
-                ImageInfo imiPng = new ImageInfo(outWidth, outHeight, 4, false, false, true);
+                ImageInfo imiPng = new ImageInfo(outWidth, outHeight, 8, false, false, true);
                 PngWriter pngw = new PngWriter(outPng, imiPng);
                 PngChunkPLTE palette = pngw.GetMetadata().CreatePLTEChunk();
                 FillPalette(palette, numPaletteEntries, pal);
@@ -397,7 +397,7 @@ namespace Pre2
             for (var i = 0; i < numTiles; i++)
             {
                 input.Read(buffer, 0, tileLength);
-                tiles[i] = ConvertPlanarIndex4Bytes(buffer, tileLength);
+                tiles[i] = ConvertIndex4ToIndex8Bytes(ConvertPlanarIndex4Bytes(buffer, tileLength));
             }
             return tiles;
         }
@@ -438,6 +438,19 @@ namespace Pre2
                 int b = ConvertVgaToRgb(vgaPalette[i * 3 + 2]);
                 palette.SetEntry(i, r, g, b);
             }
+        }
+
+        private static byte[] ConvertIndex4ToIndex8Bytes(byte[] packedBytes)
+        {
+            byte[] outBytes = new byte[packedBytes.Length * 2];
+            int idx = 0;
+            while (idx < outBytes.Length)
+            {
+                byte b = packedBytes[idx / 2];
+                outBytes[idx++] = (byte)((b & 0xF0) >> 4);
+                outBytes[idx++] = (byte) (b & 0x0F);
+            }
+            return outBytes;
         }
 
         private static byte[] ConvertPlanarIndex4Bytes(byte[] data, int targetLength)
