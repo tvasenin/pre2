@@ -175,33 +175,36 @@ namespace Pre2
                 localTiles = ReadTiles(br.BaseStream, maxLocalIdx + 1);
             }
 
-            // Quick and dirty concatenation of tiles
+            // Fetch 256 tiles according to LUT
             int bytesPerTile = TileImageInfoPng.BytesPerRow * TileImageInfoPng.Rows;
-            byte[][] totalTiles = new byte[256 + NumUnionTiles][];
-            for (var i = 0; i < 256; i++)
+            byte[][] totalTiles = new byte[256][];
+            for (var i = 0; i < totalTiles.Length; i++)
             {
-                if (i < localTiles.Length)
+                ushort idx = lut[i];
+                if (idx < 256)
                 {
-                    totalTiles[i] = localTiles[i];
+                    totalTiles[i] = localTiles[idx];
+                }
+                else if (idx < 256 + NumUnionTiles)
+                {
+                    totalTiles[i] = UnionTiles[idx - 256];
                 }
                 else
                 {
                     totalTiles[i] = new byte[bytesPerTile];
                 }
             }
-            for (var i = 0; i < UnionTiles.Length; i++)
-            {
-                totalTiles[256 + i] = UnionTiles[i];
-            }
 
-            GenerateTileSet(totalTiles, pal, 32, outPath, outName);
+            GenerateTileSet(totalTiles, pal, 20, outPath, outName);
 
-            ushort[] gidMap = new ushort[tilemap.Length];
+            byte[] gidMap = new byte[tilemap.Length];
             for (var i = 0; i < gidMap.Length; i++)
             {
-                ushort tileIdx = lut[tilemap[i]];
+                byte t = tilemap[i];
+                ushort tileIdx = lut[t];
+                if (tileIdx > 256 + NumUnionTiles) { throw new InvalidDataException(); }
                 // replace first union tile with an empty-by-convention tile
-                gidMap[i] = (ushort) (tileIdx == 256 ? 0 : (tileIdx + 1));
+                gidMap[i] = (byte) ((tileIdx == 256) ? 0 : (t + 1));
             }
 
             XmlWriterSettings settings = new XmlWriterSettings
@@ -243,7 +246,7 @@ namespace Pre2
             }
         }
 
-        private static void WriteXmlTmxDataAttribute(XmlWriter writer, ushort[] gidMap, bool compress)
+        private static void WriteXmlTmxDataAttribute(XmlWriter writer, byte[] gidMap, bool compress)
         {
             uint Adler32(byte[] bytes)
             {
