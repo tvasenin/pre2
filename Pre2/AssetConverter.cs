@@ -27,6 +27,7 @@ namespace Pre2
         private static readonly char[] LevelSuffixes = {  '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F', 'G'};
         private static readonly byte[] LevelNumRows  = {  49, 104,  49,  45, 128, 128, 128,  86, 110,  12,  24,  51,  51,  38, 173,  84 };
         private static readonly byte[] LevelPals     = {   8,  10,   7,   6,   3,   5,   1,   4,   2,   2,  11,  11,  11,  12,   2,   1 }; // no pal #0 and #9!
+        private static readonly char[] BackSuffixes  = {  '0', '0', '0', '1', '1', '1', '2', '3', '3', '0', '4', '4', '4', '5', '0', '2'};
 
         private static readonly byte[][] UnionTiles = ReadTiles(SqzUnpacker.Unpack(SqzDir + "/UNION.SQZ"), NumUnionTiles);
 
@@ -39,16 +40,17 @@ namespace Pre2
             ConvertIndex8WithPalette("TITUS");
 
             // Palette for MENU2 is concatenated at the end of the image (using a copy for convenience)!
-            ConvertIndex4("GAMEOVER", "./res/gameover.pal", 320, 200);
-            ConvertIndex4("MAP",      "./res/map.pal",      640, 200);
-            ConvertIndex4("MENU2",    "./res/menu2.pal",    320, 200);
-            ConvertIndex4("MOTIF",    "./res/motif.pal",    320, 200);
+            ConvertIndex4("GAMEOVER", File.ReadAllBytes("./res/gameover.pal"), 320, 200);
+            ConvertIndex4("MAP",      File.ReadAllBytes("./res/map.pal"),      640, 200);
+            ConvertIndex4("MENU2",    File.ReadAllBytes("./res/menu2.pal"),    320, 200);
+            ConvertIndex4("MOTIF",    File.ReadAllBytes("./res/motif.pal"),    320, 200);
 
             ConvertDevPhoto("LEVELH", "LEVELI", "LEVELHI");
 
             Directory.CreateDirectory(LevelDir);
             for (var i = 0; i < 16; i++)
             {
+                ConvertLevelBackground(i, SqzDir, LevelDir);
                 GenerateLevelTilemap(i, SqzDir, LevelDir);
             }
 
@@ -107,10 +109,15 @@ namespace Pre2
             pngw.End();
         }
 
-        private static void ConvertIndex4(string resource, string paletteFilename, int width, int height)
+        private static void ConvertIndex4(string resource, byte[] pal, int width, int height)
         {
             string destFilename = Path.Combine(CacheDir, resource) + ".png";
             string sqzFilename = Path.Combine(SqzDir, resource) + ".SQZ";
+            ConvertIndex4(sqzFilename, destFilename, pal, width, height);
+        }
+
+        private static void ConvertIndex4(string sqzFilename, string destFilename, byte[] pal, int width, int height)
+        {
             byte[] rawData = SqzUnpacker.Unpack(sqzFilename);
 
             ImageInfo imiInput = new ImageInfo(width, height, 4, false, false, true);
@@ -120,7 +127,6 @@ namespace Pre2
             byte[] indexBytes = ConvertIndex4ToIndex8Bytes(ConvertPlanarIndex4Bytes(rawData, numBytesInput));
 
             const int numPaletteEntries = 16;
-            byte[] pal = File.ReadAllBytes(paletteFilename);
             using (FileStream output = File.Create(destFilename))
             {
                 int numBytesRowPng = imiPng.BytesPerRow;
@@ -182,6 +188,17 @@ namespace Pre2
                 }
                 pngw.End();
             }
+        }
+
+        private static void ConvertLevelBackground(int idx, string sqzPath, string outPath)
+        {
+            char backSuffix = BackSuffixes[idx];
+            char levelSuffix = LevelSuffixes[idx];
+            string sqzFilename = Path.Combine(sqzPath, "BACK" + backSuffix + ".SQZ");
+            string destFilename = Path.Combine(outPath, "BACK" + levelSuffix + ".png");
+            byte[] pal = LevelPalettes[LevelPals[idx]];
+            ConvertIndex4(sqzFilename, destFilename, pal, 320, 200);
+            
         }
 
         private static void GenerateLevelTilemap(int idx, string sqzPath, string outPath)
