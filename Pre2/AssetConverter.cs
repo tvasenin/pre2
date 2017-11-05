@@ -74,22 +74,24 @@ namespace Pre2
 
         private static void ConvertIndex4(byte[] rawData, string paletteFilename, string destFilename, int width, int height)
         {
-            ImageInfo imi = new ImageInfo(width, height, 4, false, false, true);
-            int numBytesRow = imi.BytesPerRow;
-            int numBytesOutput = numBytesRow * imi.Rows;
-            byte[] indexBytes = ConvertPlanarIndex4Bytes(rawData, numBytesOutput);
+            ImageInfo imiInput = new ImageInfo(width, height, 4, false, false, true);
+            ImageInfo imiPng = new ImageInfo(width, height, 4, false, false, true);
+            int numBytesRow = imiInput.BytesPerRow;
+            int numBytesInput = numBytesRow * imiInput.Rows;
+            byte[] indexBytes = ConvertPlanarIndex4Bytes(rawData, numBytesInput);
 
             const int numPaletteEntries = 16;
             byte[] pal = File.ReadAllBytes(paletteFilename);
             using (FileStream output = File.Create(destFilename))
             {
-                PngWriter pngw = new PngWriter(output, imi);
+                int numBytesRowPng = imiPng.BytesPerRow;
+                PngWriter pngw = new PngWriter(output, imiPng);
                 PngChunkPLTE palette = pngw.GetMetadata().CreatePLTEChunk();
                 FillPalette(palette, numPaletteEntries, pal);
-                byte[] row = new byte[numBytesRow];
-                for (var i = 0; i < imi.Rows; i++)
+                byte[] row = new byte[numBytesRowPng];
+                for (var i = 0; i < imiPng.Rows; i++)
                 {
-                    Array.Copy(indexBytes, i * numBytesRow, row, 0, numBytesRow);
+                    Array.Copy(indexBytes, i * numBytesRowPng, row, 0, row.Length);
                     pngw.WriteRowByte(row, i);
                 }
                 pngw.End();
@@ -99,26 +101,29 @@ namespace Pre2
         private static void ConvertDevPhoto(byte[] planes01, byte[] planes02, string destFilename)
         {
             //input height is 415, need to pad the remaining lines
-            ImageInfo imi = new ImageInfo(640, 480, 4, false, true, false);
+            ImageInfo imiInput = new ImageInfo(640, 480, 4, false, true, false);
+            ImageInfo imiPng = new ImageInfo(640, 480, 4, false, true, false);
 
             byte[] planes = new byte[planes01.Length + planes02.Length];
             Array.Copy(planes01, 0, planes, 0, planes01.Length);
             Array.Copy(planes02, 0, planes, planes01.Length, planes02.Length);
 
-            int numBytesRow = imi.BytesPerRow;
-            int numBytesOutput = numBytesRow * imi.Rows;
-            byte[] indexBytes = ConvertPlanarIndex4Bytes(planes, numBytesOutput); // the rows not present in the original picture will be zeroes
+            int numBytesInput = imiInput.BytesPerRow * imiInput.Rows;
+
+            // the rows not present in the original picture will be zeroes
+            byte[] indexBytes = ConvertPlanarIndex4Bytes(planes, numBytesInput);
 
             //const int numPaletteEntries = 16;
 
-            byte[] row = new byte[numBytesRow];
+            int numBytesRowPng = imiPng.BytesPerRow;
+            byte[] row = new byte[numBytesRowPng];
             using (FileStream output = File.Create(destFilename))
             {
                 // TODO: check it's okay to omit palette
-                PngWriter pngw = new PngWriter(output, imi);
-                for (var i = 0; i < imi.Rows; i++)
+                PngWriter pngw = new PngWriter(output, imiPng);
+                for (var i = 0; i < imiPng.Rows; i++)
                 {
-                    Array.Copy(indexBytes, i * numBytesRow, row, 0, numBytesRow);
+                    Array.Copy(indexBytes, i * numBytesRowPng, row, 0, row.Length);
                     pngw.WriteRowByte(row, i);
                 }
                 pngw.End();
@@ -307,16 +312,16 @@ namespace Pre2
 
             using (FileStream outPng = File.Create(Path.Combine(outPath, baseFileName) + ".png"))
             {
-                ImageInfo imi = new ImageInfo(outWidth, outHeight, 4, false, false, true);
-                PngWriter pngw = new PngWriter(outPng, imi);
+                ImageInfo imiPng = new ImageInfo(outWidth, outHeight, 4, false, false, true);
+                PngWriter pngw = new PngWriter(outPng, imiPng);
                 PngChunkPLTE palette = pngw.GetMetadata().CreatePLTEChunk();
                 FillPalette(palette, numPaletteEntries, pal);
                 PngChunkTRNS trns = pngw.GetMetadata().CreateTRNSChunk();
                 trns.setIndexEntryAsTransparent(0);
-                byte[] row = new byte[imi.BytesPerRow];
+                byte[] row = new byte[imiPng.BytesPerRow];
                 for (var i = 0; i < tilesPerColumn; i++)
                 {
-                    for (var line = 0; line < 16; line++)
+                    for (var line = 0; line < tileSide; line++)
                     {
                         int offsetInsideTile = line * bytesPerTileRow;
                         for (var j = 0; j < tilesPerRow; j++)
@@ -331,7 +336,7 @@ namespace Pre2
                                 Array.Clear(row, j * bytesPerTileRow, bytesPerTileRow); // fill with zeroes
                             }
                         }
-                        pngw.WriteRowByte(row, i * 16 + line);
+                        pngw.WriteRowByte(row, i * tileSide + line);
                     }
                 }
                 pngw.End();
