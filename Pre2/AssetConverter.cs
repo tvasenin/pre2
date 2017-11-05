@@ -13,13 +13,17 @@ namespace Pre2
         private const int TileSide = 16;
         private const int LevelTilesPerRow = 256;
 
+        private static readonly ImageInfo TileImageInfoPng = new ImageInfo(TileSide, TileSide, 8, false, false, true);
+
+        private const int NumUnionTiles = 544;
+
         private static readonly byte[][] LevelPalettes = ReadLevelPalettes("./res/levels.pals");
 
         private static readonly char[] LevelSuffixes = {  '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F', 'G'};
         private static readonly byte[] LevelNumRows  = {  49, 104,  49,  45, 128, 128, 128,  86, 110,  12,  24,  51,  51,  38, 173,  84 };
         private static readonly byte[] LevelPals     = {   8,  10,   7,   6,   3,   5,   1,   4,   2,   2,  11,  11,  11,  12,   2,   1 }; // no pal #0 and #9!
 
-        private static readonly byte[][] UnionTiles = ReadTiles(SqzUnpacker.Unpack("./sqz/UNION.SQZ"), 544);
+        private static readonly byte[][] UnionTiles = ReadTiles(SqzUnpacker.Unpack("./sqz/UNION.SQZ"), NumUnionTiles);
 
         public static void PrepareAllAssets()
         {
@@ -317,8 +321,7 @@ namespace Pre2
             int outWidth = tileSide * tilesPerRow;
             int outHeight = tileSide * tilesPerColumn;
 
-            ImageInfo tileInfo = new ImageInfo(tileSide, tileSide, 8, false, false, true);
-            int bytesPerTileRow = tileInfo.BytesPerRow;
+            int bytesPerTileRow = TileImageInfoPng.BytesPerRow;
             const int numPaletteEntries = 16;
 
             using (FileStream outPng = File.Create(Path.Combine(outPath, baseFileName) + ".png"))
@@ -390,8 +393,8 @@ namespace Pre2
 
         private static byte[][] ReadTiles(Stream input, int numTiles)
         {
-            const int tileLength = 16 * 16 / 2;  // 2 pixels per byte
-
+            ImageInfo tileImageInfoInput = new ImageInfo(TileSide, TileSide, 4, false, false, true);
+            int tileLength = tileImageInfoInput.BytesPerRow * tileImageInfoInput.Rows;
             byte[][] tiles = new byte[numTiles][];
             byte[] buffer = new byte[tileLength];
             for (var i = 0; i < numTiles; i++)
