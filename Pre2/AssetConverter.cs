@@ -12,6 +12,7 @@ namespace Pre2
     {
         private const string SqzDir = "sqz";
         private const string CacheDir = "cache";
+        private const string SoundDir = CacheDir + "/audio";
         private const string LevelDir = CacheDir + "/levels";
 
         private const int TileSide = 16;
@@ -45,12 +46,33 @@ namespace Pre2
 
             ConvertDevPhoto("LEVELH", "LEVELI", "LEVELHI");
 
-
             Directory.CreateDirectory(LevelDir);
             for (var i = 0; i < 16; i++)
             {
                 GenerateLevelTilemap(i, SqzDir, LevelDir);
             }
+
+            Directory.CreateDirectory(SoundDir);
+            UnpackTrk("BOULA");
+            UnpackTrk("BRAVO");
+            UnpackTrk("CARTE");
+            UnpackTrk("CODE");
+            UnpackTrk("FINAL");
+            UnpackTrk("GLACE");
+            UnpackTrk("KOOL");
+            UnpackTrk("MINES");
+            UnpackTrk("MONSTER");
+            UnpackTrk("MYSTERY");
+            UnpackTrk("PRES");
+            UnpackTrk("PRESENTA");
+        }
+
+        private static void UnpackTrk(string resource)
+        {
+            string destFilename = Path.Combine(SoundDir, resource) + ".mod";
+            string sqzFilename = Path.Combine(SqzDir, resource) + ".TRK";
+            byte[] data = SqzUnpacker.Unpack(sqzFilename);
+            File.WriteAllBytes(destFilename, data);
         }
 
         private static void ConvertIndex8WithPalette(string resource)
