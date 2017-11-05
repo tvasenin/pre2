@@ -102,7 +102,7 @@ namespace Pre2
         {
             //input height is 415, need to pad the remaining lines
             ImageInfo imiInput = new ImageInfo(640, 480, 4, false, true, false);
-            ImageInfo imiPng = new ImageInfo(640, 480, 4, false, true, false);
+            ImageInfo imiPng = new ImageInfo(640, 480, 4, false, false, true);
 
             byte[] planes = new byte[planes01.Length + planes02.Length];
             Array.Copy(planes01, 0, planes, 0, planes01.Length);
@@ -113,14 +113,25 @@ namespace Pre2
             // the rows not present in the original picture will be zeroes
             byte[] indexBytes = ConvertPlanarIndex4Bytes(planes, numBytesInput);
 
-            //const int numPaletteEntries = 16;
+            // generate greyscale palette (naive way)
+            const int numPaletteEntries = 16;
+            byte[] pal = new byte[numPaletteEntries * 3];
+            int idx = 0;
+            for (var i = 0; i < numPaletteEntries; i++)
+            {
+                byte c = (byte) (i * 4);
+                pal[idx++] = c;
+                pal[idx++] = c;
+                pal[idx++] = c;
+            }
 
             int numBytesRowPng = imiPng.BytesPerRow;
             byte[] row = new byte[numBytesRowPng];
             using (FileStream output = File.Create(destFilename))
             {
-                // TODO: check it's okay to omit palette
                 PngWriter pngw = new PngWriter(output, imiPng);
+                PngChunkPLTE palette = pngw.GetMetadata().CreatePLTEChunk();
+                FillPalette(palette, numPaletteEntries, pal);
                 for (var i = 0; i < imiPng.Rows; i++)
                 {
                     Array.Copy(indexBytes, i * numBytesRowPng, row, 0, row.Length);
