@@ -158,18 +158,18 @@ namespace Pre2
 
             byte[][] localTiles;
             byte[] tilemap;
-            short[] lut = new short[256];
+            ushort[] lut = new ushort[256];
             using (BinaryReader br = new BinaryReader(new MemoryStream(data, false)))
             {
                 tilemap = br.ReadBytes(numTileRows * LevelTilesPerRow);
                 short maxLocalIdx = -1;
                 for (var i = 0; i < lut.Length; i++)
                 {
-                    short v = br.ReadInt16();
+                    ushort v = br.ReadUInt16();
                     lut[i] = v;
                     if (v < 256 && v > maxLocalIdx)
                     {
-                        maxLocalIdx = v;
+                        maxLocalIdx = (short) v;
                     }
                 }
                 localTiles = ReadTiles(br.BaseStream, maxLocalIdx + 1);
@@ -196,12 +196,12 @@ namespace Pre2
 
             GenerateTileSet(totalTiles, pal, 32, outPath, outName);
 
-            short[] gidMap = new short[tilemap.Length];
+            ushort[] gidMap = new ushort[tilemap.Length];
             for (var i = 0; i < gidMap.Length; i++)
             {
-                short tileIdx = lut[tilemap[i]];
+                ushort tileIdx = lut[tilemap[i]];
                 // replace first union tile with an empty-by-convention tile
-                gidMap[i] = (short) (tileIdx == 256 ? 0 : (tileIdx + 1));
+                gidMap[i] = (ushort) (tileIdx == 256 ? 0 : (tileIdx + 1));
             }
 
             XmlWriterSettings settings = new XmlWriterSettings
@@ -243,7 +243,7 @@ namespace Pre2
             }
         }
 
-        private static void WriteXmlTmxDataAttribute(XmlWriter writer, short[] gidMap, bool compress)
+        private static void WriteXmlTmxDataAttribute(XmlWriter writer, ushort[] gidMap, bool compress)
         {
             uint Adler32(byte[] bytes)
             {
