@@ -10,6 +10,10 @@ namespace Pre2
 {
     public static class AssetConverter
     {
+        private const string SqzDir = "sqz";
+        private const string CacheDir = "cache";
+        private const string LevelDir = CacheDir + "/levels";
+
         private const int TileSide = 16;
         private const int LevelTilesPerRow = 256;
 
@@ -23,32 +27,38 @@ namespace Pre2
         private static readonly byte[] LevelNumRows  = {  49, 104,  49,  45, 128, 128, 128,  86, 110,  12,  24,  51,  51,  38, 173,  84 };
         private static readonly byte[] LevelPals     = {   8,  10,   7,   6,   3,   5,   1,   4,   2,   2,  11,  11,  11,  12,   2,   1 }; // no pal #0 and #9!
 
-        private static readonly byte[][] UnionTiles = ReadTiles(SqzUnpacker.Unpack("./sqz/UNION.SQZ"), NumUnionTiles);
+        private static readonly byte[][] UnionTiles = ReadTiles(SqzUnpacker.Unpack(SqzDir + "/UNION.SQZ"), NumUnionTiles);
 
         public static void PrepareAllAssets()
         {
-            ConvertIndex8WithPalette(SqzUnpacker.Unpack("./sqz/CASTLE.SQZ"), "./out/CASTLE.png");
-            ConvertIndex8WithPalette(SqzUnpacker.Unpack("./sqz/MENU.SQZ"),   "./out/MENU.png");
-            ConvertIndex8WithPalette(SqzUnpacker.Unpack("./sqz/THEEND.SQZ"), "./out/THEEND.png");
-            ConvertIndex8WithPalette(SqzUnpacker.Unpack("./sqz/TITUS.SQZ"),  "./out/TITUS.png");
+            Directory.CreateDirectory(CacheDir);
+            ConvertIndex8WithPalette("CASTLE");
+            ConvertIndex8WithPalette("MENU");
+            ConvertIndex8WithPalette("THEEND");
+            ConvertIndex8WithPalette("TITUS");
 
             // Palette for MENU2 is concatenated at the end of the image (using a copy for convenience)!
-            ConvertIndex4(SqzUnpacker.Unpack("./sqz/GAMEOVER.SQZ"), "./res/gameover.pal", "./out/GAMEOVER.png", 320, 200);
-            ConvertIndex4(SqzUnpacker.Unpack("./sqz/MAP.SQZ"),      "./res/map.pal",      "./out/MAP.png",      640, 200);
-            ConvertIndex4(SqzUnpacker.Unpack("./sqz/MENU2.SQZ"),    "./res/menu2.pal",    "./out/MENU2.png",    320, 200);
-            ConvertIndex4(SqzUnpacker.Unpack("./sqz/MOTIF.SQZ"),    "./res/motif.pal",    "./out/MOTIF.png",    320, 200);
+            ConvertIndex4("GAMEOVER", "./res/gameover.pal", 320, 200);
+            ConvertIndex4("MAP",      "./res/map.pal",      640, 200);
+            ConvertIndex4("MENU2",    "./res/menu2.pal",    320, 200);
+            ConvertIndex4("MOTIF",    "./res/motif.pal",    320, 200);
 
-            ConvertDevPhoto(SqzUnpacker.Unpack("./sqz/LEVELH.SQZ"), SqzUnpacker.Unpack("./sqz/LEVELI.SQZ"), "./out/LEVELHI.png");
+            ConvertDevPhoto("LEVELH", "LEVELI", "LEVELHI");
 
 
+            Directory.CreateDirectory(LevelDir);
             for (var i = 0; i < 16; i++)
             {
-                GenerateLevelTilemap(i, "./sqz", "./out");
+                GenerateLevelTilemap(i, SqzDir, LevelDir);
             }
         }
 
-        private static void ConvertIndex8WithPalette(byte[] data, string destFilename)
+        private static void ConvertIndex8WithPalette(string resource)
         {
+            string destFilename = Path.Combine(CacheDir, resource) + ".png";
+            string sqzFilename = Path.Combine(SqzDir, resource) + ".SQZ";
+            byte[] data = SqzUnpacker.Unpack(sqzFilename);
+
             using (Stream input = new MemoryStream(data),
                           output = File.Create(destFilename))
             {
@@ -75,8 +85,12 @@ namespace Pre2
             pngw.End();
         }
 
-        private static void ConvertIndex4(byte[] rawData, string paletteFilename, string destFilename, int width, int height)
+        private static void ConvertIndex4(string resource, string paletteFilename, int width, int height)
         {
+            string destFilename = Path.Combine(CacheDir, resource) + ".png";
+            string sqzFilename = Path.Combine(SqzDir, resource) + ".SQZ";
+            byte[] rawData = SqzUnpacker.Unpack(sqzFilename);
+
             ImageInfo imiInput = new ImageInfo(width, height, 4, false, false, true);
             ImageInfo imiPng = new ImageInfo(width, height, 8, false, false, true);
             int numBytesRow = imiInput.BytesPerRow;
@@ -101,8 +115,12 @@ namespace Pre2
             }
         }
 
-        private static void ConvertDevPhoto(byte[] planes01, byte[] planes02, string destFilename)
+        private static void ConvertDevPhoto(string resource1, string resource2, string resourceOutput)
         {
+            string destFilename = Path.Combine(CacheDir, resourceOutput) + ".png";
+            byte[] planes01 = SqzUnpacker.Unpack(Path.Combine(SqzDir, resource1) + ".SQZ");
+            byte[] planes02 = SqzUnpacker.Unpack(Path.Combine(SqzDir, resource2) + ".SQZ");
+
             //input height is 415, need to pad the remaining lines
             ImageInfo imiInput = new ImageInfo(640, 480, 4, false, true, false);
             ImageInfo imiPng = new ImageInfo(640, 480, 8, false, false, true);
