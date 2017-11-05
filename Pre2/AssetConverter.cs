@@ -40,7 +40,6 @@ namespace Pre2
 
             ConvertDevPhoto(SqzUnpacker.Unpack("./sqz/LEVELH.SQZ"), SqzUnpacker.Unpack("./sqz/LEVELI.SQZ"), "./out/LEVELHI.png");
 
-            GenerateTileSet(UnionTiles, LevelPalettes[0], 32, "./out", "UNION"); // first palette!
 
             for (var i = 0; i < 16; i++)
             {
@@ -149,7 +148,7 @@ namespace Pre2
         {
             char suffix = LevelSuffixes[idx];
             byte[] data = SqzUnpacker.Unpack(Path.Combine(sqzPath, "LEVEL" + suffix + ".SQZ"));
-            byte[] pal = LevelPalettes[0]; // TODO: Use actual palettes
+            byte[] pal = LevelPalettes[LevelPals[idx]];
             GenerateLevelTilemapImpl(data, pal, LevelNumRows[idx], outPath, "LEVEL" + suffix);
         }
 
@@ -163,7 +162,7 @@ namespace Pre2
             using (BinaryReader br = new BinaryReader(new MemoryStream(data, false)))
             {
                 tilemap = br.ReadBytes(numTileRows * LevelTilesPerRow);
-                short maxLocalIdx = 0;
+                short maxLocalIdx = -1;
                 for (var i = 0; i < lut.Length; i++)
                 {
                     short v = br.ReadInt16();
@@ -176,7 +175,26 @@ namespace Pre2
                 localTiles = ReadTiles(br.BaseStream, maxLocalIdx + 1);
             }
 
-            GenerateTileSet(localTiles, pal, 32, outPath, outName); // TODO: fix the palette!
+            // Quick and dirty concatenation of tiles
+            int bytesPerTile = TileImageInfoPng.BytesPerRow * TileImageInfoPng.Rows;
+            byte[][] totalTiles = new byte[256 + NumUnionTiles][];
+            for (var i = 0; i < 256; i++)
+            {
+                if (i < localTiles.Length)
+                {
+                    totalTiles[i] = localTiles[i];
+                }
+                else
+                {
+                    totalTiles[i] = new byte[bytesPerTile];
+                }
+            }
+            for (var i = 0; i < UnionTiles.Length; i++)
+            {
+                totalTiles[256 + i] = UnionTiles[i];
+            }
+
+            GenerateTileSet(totalTiles, pal, 32, outPath, outName);
 
             short[] gidMap = new short[tilemap.Length];
             for (var i = 0; i < gidMap.Length; i++)
@@ -208,11 +226,6 @@ namespace Pre2
                 writer.WriteStartElement("tileset");
                 writer.WriteAttributeString("firstgid", "1");
                 writer.WriteAttributeString("source", outName + ".tsx");
-                writer.WriteEndElement();
-
-                writer.WriteStartElement("tileset");
-                writer.WriteAttributeString("firstgid", "257");
-                writer.WriteAttributeString("source", "union.tsx");
                 writer.WriteEndElement();
 
                 writer.WriteStartElement("layer");
