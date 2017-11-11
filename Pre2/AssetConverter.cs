@@ -19,6 +19,7 @@ namespace Pre2
 
         private static readonly ImageInfo TileImageInfoPng = new ImageInfo(TileSide, TileSide, 8, false, false, true);
 
+        private const int NumFrontTiles = 163;
         private const int NumUnionTiles = 544;
 
         private static readonly byte[][] LevelPalettes = ReadLevelPalettes("./res/levels.pals");
@@ -28,7 +29,8 @@ namespace Pre2
         private static readonly byte[] LevelPals     = {   8,  10,   7,   6,   3,   5,   1,   4,   2,   2,  11,  11,  11,  12,   2,   1 }; // no pal #0 and #9!
         private static readonly char[] BackSuffixes  = {  '0', '0', '0', '1', '1', '1', '2', '3', '3', '0', '4', '4', '4', '5', '0', '2'};
 
-        private static readonly byte[][] UnionTiles = ReadTiles(SqzUnpacker.Unpack(SqzDir + "/UNION.SQZ"), NumUnionTiles);
+        private static readonly byte[][] FrontTiles = ReadTiles(SqzUnpacker.Unpack(Path.Combine(SqzDir, "FRONT.SQZ")), NumFrontTiles);
+        private static readonly byte[][] UnionTiles = ReadTiles(SqzUnpacker.Unpack(Path.Combine(SqzDir, "UNION.SQZ")), NumUnionTiles);
 
         public static void PrepareAllAssets()
         {
@@ -59,6 +61,8 @@ namespace Pre2
             {
                 GenerateLevelTilemap(i, SqzDir, CacheDir);
             }
+
+            GenerateTileSet(FrontTiles, LevelPalettes[0], NumFrontTiles, CacheDir, "FRONT");
 
             Directory.CreateDirectory(SoundDir);
             UnpackTrk("BOULA");
