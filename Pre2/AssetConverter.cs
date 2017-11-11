@@ -75,16 +75,16 @@ namespace Pre2
 
         private static void UnpackTrk(string resource)
         {
-            string destFilename = Path.Combine(SoundDir, resource) + ".mod";
-            string sqzFilename = Path.Combine(SqzDir, resource) + ".TRK";
+            string destFilename = Path.Combine(SoundDir, resource + ".mod");
+            string sqzFilename = Path.Combine(SqzDir, resource + ".TRK");
             byte[] data = SqzUnpacker.Unpack(sqzFilename);
             File.WriteAllBytes(destFilename, data);
         }
 
         private static void ConvertIndex8WithPalette(string resource)
         {
-            string destFilename = Path.Combine(CacheDir, resource) + ".png";
-            string sqzFilename = Path.Combine(SqzDir, resource) + ".SQZ";
+            string destFilename = Path.Combine(CacheDir, resource + ".png");
+            string sqzFilename = Path.Combine(SqzDir, resource + ".SQZ");
             byte[] data = SqzUnpacker.Unpack(sqzFilename);
             ImageInfo imi = new ImageInfo(320, 200, 8, false, false, true);
             const int numPaletteEntries = 256;
@@ -100,8 +100,8 @@ namespace Pre2
 
         private static void ConvertIndex4(string resource, byte[] pal, int width, int height)
         {
-            string destFilename = Path.Combine(CacheDir, resource) + ".png";
-            string sqzFilename = Path.Combine(SqzDir, resource) + ".SQZ";
+            string destFilename = Path.Combine(CacheDir, resource + ".png");
+            string sqzFilename = Path.Combine(SqzDir, resource + ".SQZ");
             ConvertIndex4(sqzFilename, destFilename, pal, width, height);
         }
 
@@ -119,9 +119,9 @@ namespace Pre2
 
         private static void ConvertDevPhoto(string resource1, string resource2, string resourceOutput)
         {
-            string destFilename = Path.Combine(CacheDir, resourceOutput) + ".png";
-            byte[] planes01 = SqzUnpacker.Unpack(Path.Combine(SqzDir, resource1) + ".SQZ");
-            byte[] planes02 = SqzUnpacker.Unpack(Path.Combine(SqzDir, resource2) + ".SQZ");
+            string destFilename = Path.Combine(CacheDir, resourceOutput + ".png");
+            byte[] planes01 = SqzUnpacker.Unpack(Path.Combine(SqzDir, resource1 + ".SQZ"));
+            byte[] planes02 = SqzUnpacker.Unpack(Path.Combine(SqzDir, resource2 + ".SQZ"));
 
             //input height is 415, need to pad the remaining lines
             ImageInfo imiInput = new ImageInfo(640, 480, 4, false, true, false);
@@ -160,8 +160,6 @@ namespace Pre2
 
         private static void GenerateLevelTilemapImpl(byte[] data, byte[] pal, int numTileRows, string outPath, string outName)
         {
-            string baseFilename = Path.Combine(outPath, outName);
-
             byte[][] localTiles;
             byte[] tilemap;
             ushort[] lut = new ushort[256];
@@ -219,7 +217,7 @@ namespace Pre2
                 Encoding = new UTF8Encoding(false)
             };
 
-            using (XmlWriter writer = XmlWriter.Create(baseFilename + ".tmx", settings))
+            using (XmlWriter writer = XmlWriter.Create(Path.Combine(outPath, outName + ".tmx"), settings))
             {
                 writer.WriteStartDocument();
 
@@ -346,7 +344,7 @@ namespace Pre2
             int bytesPerTileRow = TileImageInfoPng.BytesPerRow;
             const int numPaletteEntries = 16;
 
-            using (FileStream outPng = File.Create(Path.Combine(outPath, baseFileName) + ".png"))
+            using (FileStream outPng = File.Create(Path.Combine(outPath, baseFileName + ".png")))
             {
                 ImageInfo imiPng = new ImageInfo(outWidth, outHeight, 8, false, false, true);
                 PngWriter pngw = new PngWriter(outPng, imiPng);
