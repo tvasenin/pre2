@@ -45,12 +45,18 @@ namespace Pre2
             ConvertIndex4("MENU2",    File.ReadAllBytes("./res/menu2.pal"),    320, 200);
             ConvertIndex4("MOTIF",    File.ReadAllBytes("./res/motif.pal"),    320, 200);
 
+            ConvertIndex4("BACK0", LevelPalettes[0], 320, 200);
+            ConvertIndex4("BACK1", LevelPalettes[0], 320, 200);
+            ConvertIndex4("BACK2", LevelPalettes[0], 320, 200);
+            ConvertIndex4("BACK3", LevelPalettes[0], 320, 200);
+            ConvertIndex4("BACK4", LevelPalettes[0], 320, 200);
+            ConvertIndex4("BACK5", LevelPalettes[0], 320, 200);
+
             ConvertDevPhoto("LEVELH", "LEVELI", "LEVELHI");
 
             Directory.CreateDirectory(LevelDir);
             for (var i = 0; i < 16; i++)
             {
-                ConvertLevelBackground(i, SqzDir, LevelDir);
                 GenerateLevelTilemap(i, SqzDir, LevelDir);
             }
 
@@ -188,17 +194,6 @@ namespace Pre2
                 }
                 pngw.End();
             }
-        }
-
-        private static void ConvertLevelBackground(int idx, string sqzPath, string outPath)
-        {
-            char backSuffix = BackSuffixes[idx];
-            char levelSuffix = LevelSuffixes[idx];
-            string sqzFilename = Path.Combine(sqzPath, "BACK" + backSuffix + ".SQZ");
-            string destFilename = Path.Combine(outPath, "BACK" + levelSuffix + ".png");
-            byte[] pal = LevelPalettes[LevelPals[idx]];
-            ConvertIndex4(sqzFilename, destFilename, pal, 320, 200);
-            
         }
 
         private static void GenerateLevelTilemap(int idx, string sqzPath, string outPath)
