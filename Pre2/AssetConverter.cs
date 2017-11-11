@@ -86,31 +86,16 @@ namespace Pre2
             string destFilename = Path.Combine(CacheDir, resource) + ".png";
             string sqzFilename = Path.Combine(SqzDir, resource) + ".SQZ";
             byte[] data = SqzUnpacker.Unpack(sqzFilename);
-
-            using (Stream input = new MemoryStream(data),
-                          output = File.Create(destFilename))
-            {
-                ConvertIndex8WithPalette(input, output);
-            }
-        }
-
-        private static void ConvertIndex8WithPalette(Stream input, Stream output)
-        {
             ImageInfo imi = new ImageInfo(320, 200, 8, false, false, true);
             const int numPaletteEntries = 256;
             byte[] pal = new byte[numPaletteEntries * 3];
-            input.Read(pal, 0, pal.Length);
-
-            PngWriter pngw = new PngWriter(output, imi);
-            PngChunkPLTE palette = pngw.GetMetadata().CreatePLTEChunk();
-            FillPalette(palette, numPaletteEntries, pal);
-            byte[] row = new byte[imi.BytesPerRow];
-            for (var i = 0; i < imi.Rows; i++)
+            byte[] indexBytes = new byte[imi.BytesPerRow * imi.Rows];
+            using (Stream input = new MemoryStream(data))
             {
-                input.Read(row, 0, row.Length);
-                pngw.WriteRowByte(row, i);
+                input.Read(pal, 0, pal.Length);
+                input.Read(indexBytes, 0, indexBytes.Length);
             }
-            pngw.End();
+            WritePng8(destFilename, indexBytes, pal, 320, 200);
         }
 
         private static void ConvertIndex4(string resource, byte[] pal, int width, int height)
@@ -125,26 +110,11 @@ namespace Pre2
             byte[] rawData = SqzUnpacker.Unpack(sqzFilename);
 
             ImageInfo imiInput = new ImageInfo(width, height, 4, false, false, true);
-            ImageInfo imiPng = new ImageInfo(width, height, 8, false, false, true);
             int numBytesRow = imiInput.BytesPerRow;
             int numBytesInput = numBytesRow * imiInput.Rows;
             byte[] indexBytes = ConvertIndex4ToIndex8Bytes(ConvertPlanarIndex4Bytes(rawData, numBytesInput));
 
-            const int numPaletteEntries = 16;
-            using (FileStream output = File.Create(destFilename))
-            {
-                int numBytesRowPng = imiPng.BytesPerRow;
-                PngWriter pngw = new PngWriter(output, imiPng);
-                PngChunkPLTE palette = pngw.GetMetadata().CreatePLTEChunk();
-                FillPalette(palette, numPaletteEntries, pal);
-                byte[] row = new byte[numBytesRowPng];
-                for (var i = 0; i < imiPng.Rows; i++)
-                {
-                    Array.Copy(indexBytes, i * numBytesRowPng, row, 0, row.Length);
-                    pngw.WriteRowByte(row, i);
-                }
-                pngw.End();
-            }
+            WritePng8(destFilename, indexBytes,pal, width, height);
         }
 
         private static void ConvertDevPhoto(string resource1, string resource2, string resourceOutput)
@@ -155,7 +125,6 @@ namespace Pre2
 
             //input height is 415, need to pad the remaining lines
             ImageInfo imiInput = new ImageInfo(640, 480, 4, false, true, false);
-            ImageInfo imiPng = new ImageInfo(640, 480, 8, false, false, true);
 
             byte[] planes = new byte[planes01.Length + planes02.Length];
             Array.Copy(planes01, 0, planes, 0, planes01.Length);
@@ -178,20 +147,7 @@ namespace Pre2
                 pal[idx++] = c;
             }
 
-            int numBytesRowPng = imiPng.BytesPerRow;
-            byte[] row = new byte[numBytesRowPng];
-            using (FileStream output = File.Create(destFilename))
-            {
-                PngWriter pngw = new PngWriter(output, imiPng);
-                PngChunkPLTE palette = pngw.GetMetadata().CreatePLTEChunk();
-                FillPalette(palette, numPaletteEntries, pal);
-                for (var i = 0; i < imiPng.Rows; i++)
-                {
-                    Array.Copy(indexBytes, i * numBytesRowPng, row, 0, row.Length);
-                    pngw.WriteRowByte(row, i);
-                }
-                pngw.End();
-            }
+            WritePng8(destFilename, indexBytes, pal, 640, 480);
         }
 
         private static void GenerateLevelTilemap(int idx, string sqzPath, string outPath)
@@ -506,6 +462,26 @@ namespace Pre2
                 int g = ConvertVgaToRgb(vgaPalette[i * 3 + 1]);
                 int b = ConvertVgaToRgb(vgaPalette[i * 3 + 2]);
                 palette.SetEntry(i, r, g, b);
+            }
+        }
+
+        private static void WritePng8(string filename, byte[] indexBytes, byte[] palVga, int width, int height)
+        {
+            ImageInfo imiPng = new ImageInfo(width, height, 8, false, false, true);
+            int numBytesRowPng = imiPng.BytesPerRow;
+            byte[] row = new byte[numBytesRowPng];
+            int numPaletteEntries = palVga.Length / 3;
+            using (FileStream output = File.Create(filename))
+            {
+                PngWriter pngw = new PngWriter(output, imiPng);
+                PngChunkPLTE palette = pngw.GetMetadata().CreatePLTEChunk();
+                FillPalette(palette, numPaletteEntries, palVga);
+                for (var i = 0; i < imiPng.Rows; i++)
+                {
+                    Array.Copy(indexBytes, i * numBytesRowPng, row, 0, row.Length);
+                    pngw.WriteRowByte(row, i);
+                }
+                pngw.End();
             }
         }
 
