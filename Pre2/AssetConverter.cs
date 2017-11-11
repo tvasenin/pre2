@@ -13,7 +13,6 @@ namespace Pre2
         private const string SqzDir = "sqz";
         private const string CacheDir = "cache";
         private const string SoundDir = CacheDir + "/audio";
-        private const string LevelDir = CacheDir + "/levels";
 
         private const int TileSide = 16;
         private const int LevelTilesPerRow = 256;
@@ -54,10 +53,9 @@ namespace Pre2
 
             ConvertDevPhoto("LEVELH", "LEVELI", "LEVELHI");
 
-            Directory.CreateDirectory(LevelDir);
             for (var i = 0; i < 16; i++)
             {
-                GenerateLevelTilemap(i, SqzDir, LevelDir);
+                GenerateLevelTilemap(i, SqzDir, CacheDir);
             }
 
             Directory.CreateDirectory(SoundDir);
