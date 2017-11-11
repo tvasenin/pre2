@@ -51,6 +51,8 @@ namespace Pre2
             ConvertIndex4("BACK4", LevelPalettes[0], 320, 200);
             ConvertIndex4("BACK5", LevelPalettes[0], 320, 200);
 
+            ConvertTitle("PRESENT");
+
             ConvertDevPhoto("LEVELH", "LEVELI", "LEVELHI");
 
             for (var i = 0; i < 16; i++)
@@ -115,6 +117,32 @@ namespace Pre2
             byte[] indexBytes = ConvertIndex4ToIndex8Bytes(ConvertPlanarIndex4Bytes(rawData, numBytesInput));
 
             WritePng8(destFilename, indexBytes,pal, width, height);
+        }
+
+        private static void ConvertTitle(string resource)
+        {
+            byte[] data = SqzUnpacker.Unpack(Path.Combine(SqzDir, resource + ".SQZ"));
+            ImageInfo imi = new ImageInfo(320, 200, 8, false, false, true);
+            const int numPaletteEntries = 256;
+            byte[] pal = new byte[numPaletteEntries * 3];
+            int imageLength = imi.BytesPerRow * imi.Rows;
+            byte[] imageBackground = new byte[imageLength];
+            byte[] imageForeground = new byte[imageLength];
+            using (Stream input = new MemoryStream(data))
+            {
+                input.Read(pal, 0, pal.Length);
+                input.Read(imageBackground, 0, imageLength);
+                input.Seek(0x600, SeekOrigin.Current);
+                int numRead = input.Read(imageForeground, 0, imageLength);
+                if (numRead < imageLength)
+                {
+                    Array.Copy(imageBackground, numRead, imageForeground, numRead, imageLength - numRead);
+                }
+            }
+            string destBackground = Path.Combine(CacheDir, resource + "_B" + ".png");
+            string destForeground = Path.Combine(CacheDir, resource + "_F" + ".png");
+            WritePng8(destBackground, imageBackground, pal, 320, 200);
+            WritePng8(destForeground, imageForeground, pal, 320, 200);
         }
 
         private static void ConvertDevPhoto(string resource1, string resource2, string resourceOutput)
