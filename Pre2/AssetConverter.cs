@@ -46,12 +46,12 @@ namespace Pre2
             ConvertIndex4("MENU2",    File.ReadAllBytes("./res/menu2.pal"),    320, 200);
             ConvertIndex4("MOTIF",    File.ReadAllBytes("./res/motif.pal"),    320, 200);
 
-            ConvertIndex4("BACK0", LevelPalettes[0], 320, 200);
-            ConvertIndex4("BACK1", LevelPalettes[0], 320, 200);
-            ConvertIndex4("BACK2", LevelPalettes[0], 320, 200);
-            ConvertIndex4("BACK3", LevelPalettes[0], 320, 200);
-            ConvertIndex4("BACK4", LevelPalettes[0], 320, 200);
-            ConvertIndex4("BACK5", LevelPalettes[0], 320, 200);
+            ConvertIndex4("BACK0", LevelPalettes[LevelPals[ 0]], 320, 200);
+            ConvertIndex4("BACK1", LevelPalettes[LevelPals[ 3]], 320, 200);
+            ConvertIndex4("BACK2", LevelPalettes[LevelPals[ 6]], 320, 200);
+            ConvertIndex4("BACK3", LevelPalettes[LevelPals[ 7]], 320, 200);
+            ConvertIndex4("BACK4", LevelPalettes[LevelPals[10]], 320, 200);
+            ConvertIndex4("BACK5", LevelPalettes[LevelPals[13]], 320, 200);
 
             ConvertTitle("PRESENT");
 
