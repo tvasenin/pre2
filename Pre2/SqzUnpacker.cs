@@ -6,7 +6,7 @@ namespace Pre2
 {
     public class SqzUnpacker
     {
-        // Based on http://ttf.mine.nu/techdocs/compress.txt
+        // LZW/Huffman are based on http://ttf.mine.nu/techdocs/compress.txt
         // The optional '-altlzw' parameter enables alternate LZW decompression,
         // as used for SQZ executable by CDRUN.COM on the '10 Great Games' CDROM by 'Telstar Fun and Games'.
 
