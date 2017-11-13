@@ -12,6 +12,7 @@ namespace Pre2
     {
         private const string SqzDir = "sqz";
         private const string CacheDir = "cache";
+        private const string ResDir = "res";
         private const string SoundDir = CacheDir + "/audio";
 
         private const int TileSide = 16;
@@ -22,7 +23,7 @@ namespace Pre2
         private const int NumFrontTiles = 163;
         private const int NumUnionTiles = 544;
 
-        private static readonly byte[][] LevelPalettes = ReadLevelPalettes("./res/levels.pals");
+        private static readonly byte[][] LevelPalettes = ReadLevelPalettes(Path.Combine(ResDir, "levels.pals"));
 
         private static readonly char[] LevelSuffixes = {  '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F', 'G'};
         private static readonly byte[] LevelNumRows  = {  49, 104,  49,  45, 128, 128, 128,  86, 110,  12,  24,  51,  51,  38, 173,  84 };
@@ -41,10 +42,10 @@ namespace Pre2
             ConvertIndex8WithPalette("TITUS");
 
             // Palette for MENU2 is concatenated at the end of the image (using a copy for convenience)!
-            ConvertIndex4("GAMEOVER", File.ReadAllBytes("./res/gameover.pal"), 320, 200);
-            ConvertIndex4("MAP",      File.ReadAllBytes("./res/map.pal"),      640, 200);
-            ConvertIndex4("MENU2",    File.ReadAllBytes("./res/menu2.pal"),    320, 200);
-            ConvertIndex4("MOTIF",    File.ReadAllBytes("./res/motif.pal"),    320, 200);
+            ConvertIndex4("GAMEOVER", File.ReadAllBytes(Path.Combine(ResDir, "gameover.pal")), 320, 200);
+            ConvertIndex4("MAP",      File.ReadAllBytes(Path.Combine(ResDir, "map.pal")),      640, 200);
+            ConvertIndex4("MENU2",    File.ReadAllBytes(Path.Combine(ResDir, "menu2.pal")),    320, 200);
+            ConvertIndex4("MOTIF",    File.ReadAllBytes(Path.Combine(ResDir, "motif.pal")),    320, 200);
 
             ConvertIndex4("BACK0", LevelPalettes[LevelPals[ 0]], 320, 200);
             ConvertIndex4("BACK1", LevelPalettes[LevelPals[ 3]], 320, 200);
