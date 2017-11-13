@@ -20,6 +20,7 @@ namespace Pre2
 
         private static readonly ImageInfo TileImageInfoPng = new ImageInfo(TileSide, TileSide, 8, false, false, true);
 
+        private const int NumSprites = 460;
         private const int NumFrontTiles = 163;
         private const int NumUnionTiles = 544;
 
@@ -58,6 +59,8 @@ namespace Pre2
 
             ConvertDevPhoto("LEVELH", "LEVELI", "LEVELHI");
 
+            GenerateSpriteSet(LevelPalettes[0]);
+
             for (var i = 0; i < 16; i++)
             {
                 GenerateLevelTilemap(i, SqzDir, CacheDir);
@@ -86,6 +89,105 @@ namespace Pre2
             string sqzFilename = Path.Combine(SqzDir, resource + ".TRK");
             byte[] data = SqzUnpacker.Unpack(sqzFilename);
             File.WriteAllBytes(destFilename, data);
+        }
+
+        private struct SpriteSetEntry
+        {
+            public int PosX { get; }
+            public int PosY { get; }
+            public int Width { get; }
+            public int Height { get; }
+
+            public SpriteSetEntry(int posX, int posY, int width, int height)
+            {
+                this.PosX = posX;
+                this.PosY = posY;
+                this.Width = width;
+                this.Height = height;
+            }
+        }
+
+        private static void GenerateSpriteSet(byte[] pal)
+        {
+
+            string resPath = Path.Combine(ResDir, "sprites.txt");
+            SpriteSetEntry[] entries = ReadSpriteSetEntries(resPath);
+
+            byte[] rawSprites = SqzUnpacker.Unpack(Path.Combine(SqzDir, "SPRITES.SQZ"));
+            byte[][] sprites = ReadSprites(rawSprites, entries);
+
+            int spritesheetW = 0;
+            int spritesheetH = 0;
+            foreach (SpriteSetEntry entry in entries)
+            {
+                int localW = entry.PosX + entry.Width;
+                int localH = entry.PosY + entry.Height;
+                if (spritesheetW < localW) { spritesheetW = localW; }
+                if (spritesheetH < localH) { spritesheetH = localH; }
+            }
+
+            byte[][] image = new byte[spritesheetH][];
+            for (var i = 0; i < image.Length; i++) { image[i] = new byte[spritesheetW]; }
+
+            for (var i = 0; i < entries.Length; i++)
+            {
+                SpriteSetEntry entry = entries[i];
+                byte[] sprite = sprites[i];
+                for (var spriteLine = 0; spriteLine < entry.Height; spriteLine++)
+                {
+                    int targetLine = entry.PosY + spriteLine;
+                    Array.Copy(sprite, spriteLine * entry.Width, image[targetLine], entry.PosX, entry.Width);
+                }
+            }
+
+            using (FileStream outPng = File.Create(Path.Combine(CacheDir, "sprites.png")))
+            {
+                int numPaletteEntries = pal.Length / 3;
+                ImageInfo imiPng = new ImageInfo(spritesheetW, spritesheetH, 8, false, false, true);
+                PngWriter pngw = new PngWriter(outPng, imiPng);
+                PngChunkPLTE palette = pngw.GetMetadata().CreatePLTEChunk();
+                FillPalette(palette, numPaletteEntries, pal);
+                PngChunkTRNS trns = pngw.GetMetadata().CreateTRNSChunk();
+                trns.setIndexEntryAsTransparent(0);
+                pngw.WriteRowsByte(image);
+                pngw.End();
+            }
+
+            string spriteset = Path.Combine(CacheDir, Path.GetFileName(resPath));
+            File.Copy(resPath, spriteset, true);
+        }
+
+        private static SpriteSetEntry[] ReadSpriteSetEntries(string txtFilename)
+        {
+            string[] lines = File.ReadAllLines(txtFilename);
+            SpriteSetEntry[] entries = new SpriteSetEntry[NumSprites];
+            for (var i = 0; i < lines.Length; i++)
+            {
+                string line = lines[i];
+                if (String.IsNullOrWhiteSpace(line)) { continue; }
+                string[] data = line.Split(new[] {' '}, StringSplitOptions.RemoveEmptyEntries);
+                if (data.Length != 6 || !data[1].Equals("=")) { throw  new InvalidDataException("Spritesheet error at line " + i); }
+                entries[i] = new SpriteSetEntry(int.Parse(data[2]), int.Parse(data[3]), int.Parse(data[4]), int.Parse(data[5]));
+            }
+            return entries;
+        }
+
+        private static byte[][] ReadSprites(byte[] rawSprites, SpriteSetEntry[] entries)
+        {
+            byte[][] sprites = new byte[entries.Length][];
+            using (Stream input = new MemoryStream(rawSprites, false))
+            {
+                for (var i = 0; i < entries.Length; i++)
+                {
+                    SpriteSetEntry entry = entries[i];
+                    ImageInfo imi = new ImageInfo(entry.Width, entry.Height, 4, false, false, true);
+                    int inputLength = imi.BytesPerRow * imi.Rows;
+                    byte[] buffer = new byte[inputLength];
+                    input.Read(buffer, 0, inputLength);
+                    sprites[i] = ConvertIndex4ToIndex8Bytes(ConvertPlanarIndex4Bytes(buffer, buffer.Length));
+                }
+            }
+            return sprites;
         }
 
         private static void ConvertIndex8WithPalette(string resource)
