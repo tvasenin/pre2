@@ -5,6 +5,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Text;
 using System.Xml;
+using Tilengine;
 
 namespace Pre2
 {
@@ -48,13 +49,6 @@ namespace Pre2
             ConvertIndex4("MENU2",    File.ReadAllBytes(Path.Combine(ResDir, "menu2.pal")),    320, 200);
             ConvertIndex4("MOTIF",    File.ReadAllBytes(Path.Combine(ResDir, "motif.pal")),    320, 200);
 
-            ConvertIndex4("BACK0", LevelPalettes[LevelPals[ 0]], 320, 200);
-            ConvertIndex4("BACK1", LevelPalettes[LevelPals[ 3]], 320, 200);
-            ConvertIndex4("BACK2", LevelPalettes[LevelPals[ 6]], 320, 200);
-            ConvertIndex4("BACK3", LevelPalettes[LevelPals[ 7]], 320, 200);
-            ConvertIndex4("BACK4", LevelPalettes[LevelPals[10]], 320, 200);
-            ConvertIndex4("BACK5", LevelPalettes[LevelPals[13]], 320, 200);
-
             ConvertTitle("PRESENT");
 
             ConvertDevPhoto("LEVELH", "LEVELI", "LEVELHI");
@@ -81,6 +75,36 @@ namespace Pre2
             UnpackTrk("MYSTERY");
             UnpackTrk("PRES");
             UnpackTrk("PRESENTA");
+        }
+
+        public static Palette GetLevelPalette(int levelIdx)
+        {
+            int numPaletteEntries = 16;
+            byte[] vgaPalette = LevelPalettes[LevelPals[levelIdx]];
+            Palette palette = new Palette(numPaletteEntries);
+            for (var i = 0; i < numPaletteEntries; i++)
+            {
+                byte r = ConvertVgaToRgb(vgaPalette[i * 3 + 0]);
+                byte g = ConvertVgaToRgb(vgaPalette[i * 3 + 1]);
+                byte b = ConvertVgaToRgb(vgaPalette[i * 3 + 2]);
+                palette.SetColor(i, new Color(r, g, b));
+            }
+            return palette;
+        }
+
+        public static Bitmap GetLevelBackground(int levelIdx)
+        {
+            int width = 320;
+            int height = 200;
+            int numBytesInput = width * height / 2; // 4 bpp
+            byte[] rawData = SqzUnpacker.Unpack(Path.Combine(SqzDir, "BACK" + BackSuffixes[levelIdx] + ".SQZ"));
+            byte[] indexBytes = ConvertIndex4ToIndex8Bytes(ConvertPlanarIndex4Bytes(rawData, numBytesInput));
+            Bitmap bitmap = new Bitmap(width, height, 8)
+            {
+                PixelData = indexBytes,
+                Palette = GetLevelPalette(levelIdx)
+            };
+            return bitmap;
         }
 
         private static void UnpackTrk(string resource)

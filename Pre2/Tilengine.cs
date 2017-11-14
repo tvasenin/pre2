@@ -1998,6 +1998,9 @@ namespace Tilengine
         private static extern int TLN_GetBitmapPitch(IntPtr bitmap);
 
         [DllImport("Tilengine")]
+        private static extern IntPtr TLN_GetBitmapPtr(IntPtr bitmap, int x, int y);
+
+        [DllImport("Tilengine")]
         private static extern IntPtr TLN_GetBitmapPalette(IntPtr bitmap);
 
         [DllImport("Tilengine")]
@@ -2057,6 +2060,27 @@ namespace Tilengine
                 return new Bitmap(retval);
             else
                 throw new CreationException();
+        }
+
+        /// <summary>
+        /// Raw pixel data
+        /// </summary>
+        public byte[] PixelData
+        {
+            get
+            {
+                byte[] pixelData = new byte[Pitch * Height];
+                IntPtr ptrPixelData = TLN_GetBitmapPtr(ptr, 0, 0);
+                Marshal.Copy(ptrPixelData, pixelData, 0, pixelData.Length);
+                return pixelData;
+            }
+
+            set
+            {
+                if (Pitch * Height != value.Length) { throw new ArgumentException(); }
+                IntPtr ptrPixelData = TLN_GetBitmapPtr(ptr, 0, 0);
+                Marshal.Copy(value, 0, ptrPixelData, value.Length);
+            }
         }
 
         /// <summary>
