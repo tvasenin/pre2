@@ -17,8 +17,6 @@ namespace Pre2
         private const int TileSide = 16;
         private const int LevelTilesPerRow = 256;
 
-        private static readonly ImageInfo TileImageInfoPng = new ImageInfo(TileSide, TileSide, 8, false, false, true);
-
         private const int NumSprites = 460;
         private const int NumFrontTiles = 163;
         private const int NumUnionTiles = 544;
@@ -30,8 +28,8 @@ namespace Pre2
         private static readonly byte[] LevelPals     = {   8,  10,   7,   6,   3,   5,   1,   4,   2,   2,  11,  11,  11,  12,   2,   1 }; // no pal #0 and #9!
         private static readonly char[] BackSuffixes  = {  '0', '0', '0', '1', '1', '1', '2', '3', '3', '0', '4', '4', '4', '5', '0', '2'};
 
-        private static readonly byte[][] FrontTiles = ReadTiles(SqzUnpacker.Unpack(Path.Combine(SqzDir, "FRONT.SQZ")), NumFrontTiles);
-        private static readonly byte[][] UnionTiles = ReadTiles(SqzUnpacker.Unpack(Path.Combine(SqzDir, "UNION.SQZ")), NumUnionTiles);
+        private static readonly byte[][] FrontTiles = ReadTiles(SqzUnpacker.Unpack(Path.Combine(SqzDir, "FRONT.SQZ")), NumFrontTiles, TileSide, TileSide);
+        private static readonly byte[][] UnionTiles = ReadTiles(SqzUnpacker.Unpack(Path.Combine(SqzDir, "UNION.SQZ")), NumUnionTiles, TileSide, TileSide);
 
         public static void PrepareAllAssets()
         {
@@ -53,7 +51,7 @@ namespace Pre2
 
             GenerateSpriteSet(LevelPalettes[0]);
 
-            GenerateTileSet(FrontTiles, LevelPalettes[0], NumFrontTiles, CacheDir, "FRONT");
+            GenerateTileSet(FrontTiles, LevelPalettes[0], NumFrontTiles, TileSide, TileSide, CacheDir, "FRONT");
 
             Directory.CreateDirectory(SoundDir);
             UnpackTrk("BOULA");
@@ -329,7 +327,7 @@ namespace Pre2
                         maxLocalIdx = (short) v;
                     }
                 }
-                localTiles = ReadTiles(br.BaseStream, maxLocalIdx + 1);
+                localTiles = ReadTiles(br.BaseStream, maxLocalIdx + 1, TileSide, TileSide);
             }
 
             Tileset tileset = new Tileset(lut.Length, TileSide, TileSide, palette, new SequencePack(), null);
@@ -375,17 +373,16 @@ namespace Pre2
             return x / y + (x % y > 0 ? 1 : 0);
         }
 
-        private static void GenerateTileSet(byte[][] tiles, byte[] pal, int tilesPerRow, string outPath, string baseFileName)
+        private static void GenerateTileSet(byte[][] tiles, byte[] pal, int tilesPerRow, int tileWidth, int tileHeight, string outPath, string baseFileName)
         {
-            const int tileSide = 16;
-
             int numTiles = tiles.Length;
             int tilesPerColumn = DivideWithRoundUp(numTiles,tilesPerRow);
 
-            int outWidth = tileSide * tilesPerRow;
-            int outHeight = tileSide * tilesPerColumn;
+            int outWidth = tileWidth * tilesPerRow;
+            int outHeight = tileHeight * tilesPerColumn;
 
-            int bytesPerTileRow = TileImageInfoPng.BytesPerRow;
+            int bytesPerTileRow = tileWidth; // assume 8bpp
+            
             const int numPaletteEntries = 16;
 
             using (FileStream outPng = File.Create(Path.Combine(outPath, baseFileName + ".png")))
@@ -399,7 +396,7 @@ namespace Pre2
                 byte[] row = new byte[imiPng.BytesPerRow];
                 for (var i = 0; i < tilesPerColumn; i++)
                 {
-                    for (var line = 0; line < tileSide; line++)
+                    for (var line = 0; line < tileHeight; line++)
                     {
                         int offsetInsideTile = line * bytesPerTileRow;
                         for (var j = 0; j < tilesPerRow; j++)
@@ -414,15 +411,15 @@ namespace Pre2
                                 Array.Clear(row, j * bytesPerTileRow, bytesPerTileRow); // fill with zeroes
                             }
                         }
-                        pngw.WriteRowByte(row, i * tileSide + line);
+                        pngw.WriteRowByte(row, i * tileHeight + line);
                     }
                 }
                 pngw.End();
             }
-            WriteTsx(baseFileName, outPath, tileSide, outWidth, outHeight);
+            WriteTsx(baseFileName, outPath, tileWidth, tileHeight, outWidth, outHeight);
         }
 
-        private static void WriteTsx(string baseFilename, string outPath, int tileSide, int outWidth, int outHeight)
+        private static void WriteTsx(string baseFilename, string outPath, int tileWidth, int tileHeight, int outWidth, int outHeight)
         {
             string outFilename = Path.Combine(outPath, baseFilename + ".tsx");
 
@@ -434,8 +431,8 @@ namespace Pre2
 
             XmlElement tileset = doc.CreateElement("tileset");
             tileset.SetAttribute("name", baseFilename); // set tileset name to the base filename
-            tileset.SetAttribute("tilewidth", tileSide.ToString());
-            tileset.SetAttribute("tileheight", tileSide.ToString());
+            tileset.SetAttribute("tilewidth", tileWidth.ToString());
+            tileset.SetAttribute("tileheight", tileHeight.ToString());
             doc.AppendChild(tileset);
 
             XmlElement image = doc.CreateElement("image");
@@ -447,17 +444,17 @@ namespace Pre2
             doc.Save(outFilename);
         }
 
-        private static byte[][] ReadTiles(byte[] rawTiles, int numTiles)
+        private static byte[][] ReadTiles(byte[] rawTiles, int numTiles, int tileWidth, int tileHeight)
         {
             using (Stream input = new MemoryStream(rawTiles, false))
             {
-                return ReadTiles(input, numTiles);
+                return ReadTiles(input, numTiles, tileWidth, tileHeight);
             }
         }
 
-        private static byte[][] ReadTiles(Stream input, int numTiles)
+        private static byte[][] ReadTiles(Stream input, int numTiles, int tileWidth, int tileHeight)
         {
-            ImageInfo tileImageInfoInput = new ImageInfo(TileSide, TileSide, 4, false, false, true);
+            ImageInfo tileImageInfoInput = new ImageInfo(tileWidth, tileHeight, 4, false, false, true);
             int tileLength = tileImageInfoInput.BytesPerRow * tileImageInfoInput.Rows;
             byte[][] tiles = new byte[numTiles][];
             byte[] buffer = new byte[tileLength];
