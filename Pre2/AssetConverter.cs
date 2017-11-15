@@ -68,6 +68,11 @@ namespace Pre2
             UnpackTrk("MYSTERY");
             UnpackTrk("PRES");
             UnpackTrk("PRESENTA");
+
+            string rawDir = CacheDir + "/RAW";
+            Directory.CreateDirectory(rawDir);
+            File.WriteAllBytes(rawDir + "/SAMPLE.BIN",   SqzUnpacker.Unpack(SqzDir + "/SAMPLE.SQZ"));
+            File.WriteAllBytes(rawDir + "/KEYB.BIN",     SqzUnpacker.Unpack(SqzDir + "/KEYB.SQZ"));
         }
 
         public static Palette GetLevelPalette(int levelIdx)
