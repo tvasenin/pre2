@@ -89,7 +89,11 @@ namespace Pre2
             int height = 200;
             int numBytesInput = width * height / 2; // 4 bpp
             byte[] rawData = SqzUnpacker.Unpack(Path.Combine(SqzDir, "BACK" + BackSuffixes[levelIdx] + ".SQZ"));
-            byte[] indexBytes = ConvertIndex4ToIndex8Bytes(ConvertPlanarIndex4Bytes(rawData, numBytesInput));
+            if (rawData.Length != numBytesInput)
+            {
+                Array.Resize(ref rawData, numBytesInput);
+            }
+            byte[] indexBytes = ConvertIndex4ToIndex8Bytes(ConvertPlanarIndex4Bytes(rawData));
             Bitmap bitmap = new Bitmap(width, height, 8)
             {
                 PixelData = indexBytes,
@@ -207,7 +211,7 @@ namespace Pre2
                     int inputLength = imi.BytesPerRow * imi.Rows;
                     byte[] buffer = new byte[inputLength];
                     input.Read(buffer, 0, inputLength);
-                    sprites[i] = ConvertIndex4ToIndex8Bytes(ConvertPlanarIndex4Bytes(buffer, buffer.Length));
+                    sprites[i] = ConvertIndex4ToIndex8Bytes(ConvertPlanarIndex4Bytes(buffer));
                 }
             }
             return sprites;
@@ -241,10 +245,12 @@ namespace Pre2
         {
             byte[] rawData = SqzUnpacker.Unpack(sqzFilename);
 
-            ImageInfo imiInput = new ImageInfo(width, height, 4, false, false, true);
-            int numBytesRow = imiInput.BytesPerRow;
-            int numBytesInput = numBytesRow * imiInput.Rows;
-            byte[] indexBytes = ConvertIndex4ToIndex8Bytes(ConvertPlanarIndex4Bytes(rawData, numBytesInput));
+            int numBytesInput = width * height / 2; // 4bpp!
+            if (rawData.Length != numBytesInput)
+            {
+                Array.Resize(ref rawData, numBytesInput);
+            }
+            byte[] indexBytes = ConvertIndex4ToIndex8Bytes(ConvertPlanarIndex4Bytes(rawData));
 
             WritePng8(destFilename, indexBytes,pal, width, height);
         }
@@ -281,17 +287,18 @@ namespace Pre2
             byte[] planes01 = SqzUnpacker.Unpack(Path.Combine(SqzDir, resource1 + ".SQZ"));
             byte[] planes02 = SqzUnpacker.Unpack(Path.Combine(SqzDir, resource2 + ".SQZ"));
 
-            //input height is 415, need to pad the remaining lines
-            ImageInfo imiInput = new ImageInfo(640, 480, 4, false, true, false);
-
             byte[] planes = new byte[planes01.Length + planes02.Length];
             Array.Copy(planes01, 0, planes, 0, planes01.Length);
             Array.Copy(planes02, 0, planes, planes01.Length, planes02.Length);
 
-            int numBytesInput = imiInput.BytesPerRow * imiInput.Rows;
+            byte[] indexBytes = ConvertIndex4ToIndex8Bytes(ConvertPlanarIndex4Bytes(planes));
 
-            // the rows not present in the original picture will be zeroes
-            byte[] indexBytes = ConvertIndex4ToIndex8Bytes(ConvertPlanarIndex4Bytes(planes, numBytesInput));
+            // input height is 415, need to pad the remaining lines with zeroes
+            int imageLength = 640 * 480; // assuming 8bpp!
+            if (indexBytes.Length < imageLength)
+            {
+                Array.Resize(ref indexBytes, imageLength);
+            }
 
             // generate greyscale palette (naive way)
             const int numPaletteEntries = 16;
@@ -461,7 +468,7 @@ namespace Pre2
             for (var i = 0; i < numTiles; i++)
             {
                 input.Read(buffer, 0, tileLength);
-                tiles[i] = ConvertIndex4ToIndex8Bytes(ConvertPlanarIndex4Bytes(buffer, tileLength));
+                tiles[i] = ConvertIndex4ToIndex8Bytes(ConvertPlanarIndex4Bytes(buffer));
             }
             return tiles;
         }
@@ -537,13 +544,12 @@ namespace Pre2
             return outBytes;
         }
 
-        private static byte[] ConvertPlanarIndex4Bytes(byte[] data, int targetLength)
+        private static byte[] ConvertPlanarIndex4Bytes(byte[] data)
         {
-            // target length may be not equal to input data length (less - truncate; greater - pad with zero bytes)
+            int targetLength = data.Length;
             if ((targetLength % 4) != 0) { throw new ArgumentException("Image length should be a multiple of 4!"); }
-            byte[] indexBytes = new byte[targetLength]; // the rows not present in the original picture will be zeroes
-            int processLength = Math.Min(data.Length, targetLength);
-            int planeLength = processLength / 4;
+            byte[] indexBytes = new byte[targetLength];
+            int planeLength = targetLength / 4;
             for (var i = 0; i < planeLength; i++)
             {
                 DecodePlaneBytes(indexBytes, i * 4, data[planeLength * 0 + i], data[planeLength * 1 + i], data[planeLength * 2 + i], data[planeLength * 3 + i]);
