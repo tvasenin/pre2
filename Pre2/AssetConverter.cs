@@ -49,8 +49,6 @@ namespace Pre2
 
             ConvertTitle("PRESENT");
 
-            ConvertDevPhoto("LEVELH", "LEVELI", "LEVELHI");
-
             GenerateSpriteSet(LevelPalettes[0]);
 
             GenerateTileSet(FrontTiles, LevelPalettes[0], NumFrontTiles, TileSide, TileSide, CacheDir, "FRONT");
@@ -297,11 +295,10 @@ namespace Pre2
             WritePng8(destForeground, imageForeground, pal, 320, 200);
         }
 
-        private static void ConvertDevPhoto(string resource1, string resource2, string resourceOutput)
+        public static Bitmap GetDevPhoto()
         {
-            string destFilename = Path.Combine(CacheDir, resourceOutput + ".png");
-            byte[] planes01 = SqzUnpacker.Unpack(Path.Combine(SqzDir, resource1 + ".SQZ"));
-            byte[] planes02 = SqzUnpacker.Unpack(Path.Combine(SqzDir, resource2 + ".SQZ"));
+            byte[] planes01 = SqzUnpacker.Unpack(Path.Combine(SqzDir, "LEVELH.SQZ"));
+            byte[] planes02 = SqzUnpacker.Unpack(Path.Combine(SqzDir, "LEVELI.SQZ"));
 
             byte[] planes = new byte[planes01.Length + planes02.Length];
             Array.Copy(planes01, 0, planes, 0, planes01.Length);
@@ -318,17 +315,19 @@ namespace Pre2
 
             // generate greyscale palette (naive way)
             const int numPaletteEntries = 16;
-            byte[] pal = new byte[numPaletteEntries * 3];
-            int idx = 0;
+            Palette palette = new Palette(numPaletteEntries);
             for (var i = 0; i < numPaletteEntries; i++)
             {
-                byte c = (byte) (i * 4);
-                pal[idx++] = c;
-                pal[idx++] = c;
-                pal[idx++] = c;
+                byte c = ConvertVgaToRgb((byte) (i * 4));
+                palette.SetColor(i, new Color(c, c, c));
             }
 
-            WritePng8(destFilename, indexBytes, pal, 640, 480);
+            Bitmap devBitmap = new Bitmap(640, 480, 8)
+            {
+                PixelData = indexBytes,
+                Palette = palette
+            };
+            return devBitmap;
         }
 
         private static Tilemap GenerateLevelTilemap(byte[] rawData, int numRows, Palette palette)
