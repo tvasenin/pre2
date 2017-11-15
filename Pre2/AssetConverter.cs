@@ -34,6 +34,8 @@ namespace Pre2
         public static void PrepareAllAssets()
         {
             Directory.CreateDirectory(CacheDir);
+            ConvertAllFonts("ALLFONTS");
+
             ConvertIndex8WithPalette("CASTLE");
             ConvertIndex8WithPalette("MENU");
             ConvertIndex8WithPalette("THEEND");
@@ -244,14 +246,23 @@ namespace Pre2
         private static void ConvertIndex4(string sqzFilename, string destFilename, byte[] pal, int width, int height)
         {
             byte[] rawData = SqzUnpacker.Unpack(sqzFilename);
-
-            int numBytesInput = width * height / 2; // 4bpp!
-            if (rawData.Length != numBytesInput)
+            using (Stream input = new MemoryStream(rawData))
             {
-                Array.Resize(ref rawData, numBytesInput);
+                ConvertIndex4(input, destFilename, pal, width, height);
             }
-            byte[] indexBytes = ConvertIndex4ToIndex8Bytes(ConvertPlanarIndex4Bytes(rawData));
+        }
 
+        private static void ConvertIndex4(Stream input, string destFilename, byte[] pal, int width, int height)
+        {
+            int numBytesInput = width * height / 2; // 4bpp!
+            byte[] rawData = new byte[numBytesInput];
+            input.Read(rawData, 0, rawData.Length);
+            ConvertIndex4(rawData, destFilename, pal, width, height);
+        }
+
+        private static void ConvertIndex4(byte[] rawData, string destFilename, byte[] pal, int width, int height)
+        {
+            byte[] indexBytes = ConvertIndex4ToIndex8Bytes(ConvertPlanarIndex4Bytes(rawData));
             WritePng8(destFilename, indexBytes,pal, width, height);
         }
 
@@ -373,6 +384,39 @@ namespace Pre2
 
             Tilemap tilemap = new Tilemap(numRows, LevelTilesPerRow, tiles, new Color(0, 0, 0), tileset);
             return tilemap;
+        }
+
+        private static void ConvertAllFonts(string resource)
+        {
+            byte[] data = SqzUnpacker.Unpack(Path.Combine(SqzDir, resource + ".SQZ"));
+            int font1Width = 8;
+            int font1Height = 12;
+            int font2Width = 16;
+            int font2Height = 12;
+            int font3Width = 16;
+            int font3Height = 11;
+            byte[] palYearDevs = File.ReadAllBytes(Path.Combine(ResDir, "year_devs.pal"));
+            byte[] palDefault = LevelPalettes[0];
+
+            using (Stream input = new MemoryStream(data))
+            {
+                byte[][] font1 = ReadTiles(input, 41, font1Width, font1Height);
+                GenerateTileSet(font1, palYearDevs, font1.Length, font1Width, font1Height, CacheDir, "font1");
+
+                ConvertIndex4(input, Path.Combine(CacheDir, "panel.png"), palDefault, 320, 23);
+
+                byte[][] font2 = ReadTiles(input, 17, font2Width, font2Height);
+                GenerateTileSet(font2, palDefault, font2.Length, font2Width, font2Height, CacheDir, "font2");
+
+                byte[][] font3 = ReadTiles(input, 10, font3Width, font3Height);
+                GenerateTileSet(font3, palDefault, font3.Length, font3Width, font3Height, CacheDir, "font3");
+
+                byte[] unknown = new byte[input.Length - input.Position];
+                input.Read(unknown, 0, unknown.Length);
+                string rawDir = CacheDir + "/RAW";
+                Directory.CreateDirectory(rawDir);
+                File.WriteAllBytes(Path.Combine(rawDir, "ALLFONTS_UNKNOWN_PART.bin"), unknown);
+            }
         }
 
         private static int DivideWithRoundUp(int x, int y)
