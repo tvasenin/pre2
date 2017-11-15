@@ -309,22 +309,24 @@ namespace Pre2
             WritePng8(destFilename, indexBytes, pal, 640, 480);
         }
 
-        private static void GenerateLevelTilemap(int idx, string sqzPath, string outPath)
+        private static void GenerateLevelTilemap(int levelIdx, string sqzPath, string outPath)
         {
-            char suffix = LevelSuffixes[idx];
-            byte[] data = SqzUnpacker.Unpack(Path.Combine(sqzPath, "LEVEL" + suffix + ".SQZ"));
-            byte[] pal = LevelPalettes[LevelPals[idx]];
-            GenerateLevelTilemapImpl(data, pal, LevelNumRows[idx], outPath, "LEVEL" + suffix);
+            char suffix = LevelSuffixes[levelIdx];
+            byte[] rawData = SqzUnpacker.Unpack(Path.Combine(sqzPath, "LEVEL" + suffix + ".SQZ"));
+            int numRows = LevelNumRows[levelIdx];
+            byte[] pal = LevelPalettes[LevelPals[levelIdx]];
+            GenerateLevelTilemapImpl(rawData, pal, numRows, outPath, "LEVEL" + suffix);
         }
 
-        private static void GenerateLevelTilemapImpl(byte[] data, byte[] pal, int numTileRows, string outPath, string outName)
+        private static void GenerateLevelTilemapImpl(byte[] rawData, byte[] pal, int numRows, string outPath, string outName)
         {
-            byte[][] localTiles;
-            byte[] tilemap;
+            int tilemapLength = numRows * LevelTilesPerRow;
+            byte[] tilemapBytes = new byte[tilemapLength];
             ushort[] lut = new ushort[256];
-            using (BinaryReader br = new BinaryReader(new MemoryStream(data, false)))
+            byte[][] localTiles;
+            using (BinaryReader br = new BinaryReader(new MemoryStream(rawData, false)))
             {
-                tilemap = br.ReadBytes(numTileRows * LevelTilesPerRow);
+                br.Read(tilemapBytes, 0, tilemapBytes.Length);
                 short maxLocalIdx = -1;
                 for (var i = 0; i < lut.Length; i++)
                 {
@@ -339,31 +341,33 @@ namespace Pre2
             }
 
             // Fetch 256 tiles according to LUT
-            int bytesPerTile = TileImageInfoPng.BytesPerRow * TileImageInfoPng.Rows;
-            byte[][] totalTiles = new byte[256][];
-            for (var i = 0; i < totalTiles.Length; i++)
+            int bytesPerTile = UnionTiles[0].Length;
+            byte[][] totalTiles = new byte[lut.Length][];
+            for (var i = 0; i < lut.Length; i++)
             {
+                byte[] tilePixels;
                 ushort idx = lut[i];
                 if (idx < 256)
                 {
-                    totalTiles[i] = localTiles[idx];
+                    tilePixels = localTiles[idx];
                 }
                 else if (idx < 256 + NumUnionTiles)
                 {
-                    totalTiles[i] = UnionTiles[idx - 256];
+                    tilePixels = UnionTiles[idx - 256];
                 }
                 else
                 {
-                    totalTiles[i] = new byte[bytesPerTile];
+                    tilePixels = new byte[bytesPerTile];
                 }
+                totalTiles[i] = tilePixels;
             }
 
             GenerateTileSet(totalTiles, pal, 20, outPath, outName);
 
-            byte[] gidMap = new byte[tilemap.Length];
+            byte[] gidMap = new byte[tilemapBytes.Length];
             for (var i = 0; i < gidMap.Length; i++)
             {
-                byte t = tilemap[i];
+                byte t = tilemapBytes[i];
                 ushort tileIdx = lut[t];
                 if (tileIdx > 256 + NumUnionTiles) { throw new InvalidDataException(); }
                 // replace first union tile with an empty-by-convention tile
@@ -385,7 +389,7 @@ namespace Pre2
                 writer.WriteAttributeString("orientation", "orthogonal");
                 writer.WriteAttributeString("renderorder", "right-down");
                 writer.WriteAttributeString("width", LevelTilesPerRow.ToString());
-                writer.WriteAttributeString("height", numTileRows.ToString());
+                writer.WriteAttributeString("height", numRows.ToString());
                 writer.WriteAttributeString("tilewidth", TileSide.ToString());
                 writer.WriteAttributeString("tileheight", TileSide.ToString());
 
@@ -397,7 +401,7 @@ namespace Pre2
                 writer.WriteStartElement("layer");
                 writer.WriteAttributeString("name", "Tiles");
                 writer.WriteAttributeString("width", LevelTilesPerRow.ToString());
-                writer.WriteAttributeString("height", numTileRows.ToString());
+                writer.WriteAttributeString("height", numRows.ToString());
 
                 WriteXmlTmxDataAttribute(writer, gidMap, true);
 
