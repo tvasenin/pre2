@@ -31,10 +31,37 @@ namespace Pre2
         private static readonly byte[][] FrontTiles = ReadTiles(SqzUnpacker.Unpack(Path.Combine(SqzDir, "FRONT.SQZ")), NumFrontTiles, TileSide, TileSide);
         private static readonly byte[][] UnionTiles = ReadTiles(SqzUnpacker.Unpack(Path.Combine(SqzDir, "UNION.SQZ")), NumUnionTiles, TileSide, TileSide);
 
+        private static readonly SpriteInfo FontYearDevsInfo = new SpriteInfo { W =  8, H = 12 };
+        private static readonly SpriteInfo PanelSpritesInfo = new SpriteInfo { W = 16, H = 12 };
+        private static readonly SpriteInfo FontUnknownInfo  = new SpriteInfo { W = 16, H = 11 };
+        private static readonly byte[][] FontYearDevs;
+        private static readonly byte[][] PanelSprites;
+        private static readonly byte[][] FontUnknown;
+
+        private static readonly SpriteInfo PanelImageInfo = new SpriteInfo { W = 320, H = 23 };
+        private static readonly byte[] PanelImage;
+
+        private static readonly byte[] UnknownAllFontsData = new byte[2368];
+
+        static AssetConverter()
+        {
+            // Read AllFonts
+            using (Stream input = new MemoryStream(SqzUnpacker.Unpack(Path.Combine(SqzDir, "ALLFONTS.SQZ"))))
+            {
+                FontYearDevs = ReadTiles(input, 41, FontYearDevsInfo.W, FontYearDevsInfo.H);
+                byte[] panelImageRaw = new byte[3680];
+                input.Read(panelImageRaw, 0, panelImageRaw.Length);
+                PanelImage = ConvertIndex4ToIndex8Bytes(ConvertPlanarIndex4Bytes(panelImageRaw));
+                PanelSprites = ReadTiles(input, 17, PanelSpritesInfo.W, PanelSpritesInfo.H);
+                FontUnknown = ReadTiles(input, 10, FontUnknownInfo.W, FontUnknownInfo.H);
+                input.Read(UnknownAllFontsData, 0, UnknownAllFontsData.Length);
+            }
+        }
+
         public static void PrepareAllAssets()
         {
             Directory.CreateDirectory(CacheDir);
-            ConvertAllFonts("ALLFONTS");
+            ConvertAllFonts();
 
             ConvertIndex8WithPalette("CASTLE");
             ConvertIndex8WithPalette("MENU");
@@ -390,37 +417,19 @@ namespace Pre2
             return tilemap;
         }
 
-        private static void ConvertAllFonts(string resource)
+        private static void ConvertAllFonts()
         {
-            byte[] data = SqzUnpacker.Unpack(Path.Combine(SqzDir, resource + ".SQZ"));
-            int font1Width = 8;
-            int font1Height = 12;
-            int font2Width = 16;
-            int font2Height = 12;
-            int font3Width = 16;
-            int font3Height = 11;
             byte[] palYearDevs = File.ReadAllBytes(Path.Combine(ResDir, "year_devs.pal"));
             byte[] palDefault = LevelPalettes[0];
 
-            using (Stream input = new MemoryStream(data))
-            {
-                byte[][] font1 = ReadTiles(input, 41, font1Width, font1Height);
-                GenerateTileSet(font1, palYearDevs, font1.Length, font1Width, font1Height, CacheDir, "font1");
+            GenerateTileSet(FontYearDevs, palYearDevs, FontYearDevs.Length, FontYearDevsInfo.W, FontYearDevsInfo.H, CacheDir, "FontYearDevs");
+            ConvertIndex4(PanelImage, Path.Combine(CacheDir, "panel.png"), palDefault, PanelImageInfo.W, PanelImageInfo.H);
+            GenerateTileSet(PanelSprites, palDefault, PanelSprites.Length, PanelSpritesInfo.W, PanelSpritesInfo.H, CacheDir, "PanelSprites");
+            GenerateTileSet(FontUnknown, palDefault, FontUnknown.Length, FontUnknownInfo.W, FontUnknownInfo.H, CacheDir, "FontUnknown");
 
-                ConvertIndex4(input, Path.Combine(CacheDir, "panel.png"), palDefault, 320, 23);
-
-                byte[][] font2 = ReadTiles(input, 17, font2Width, font2Height);
-                GenerateTileSet(font2, palDefault, font2.Length, font2Width, font2Height, CacheDir, "font2");
-
-                byte[][] font3 = ReadTiles(input, 10, font3Width, font3Height);
-                GenerateTileSet(font3, palDefault, font3.Length, font3Width, font3Height, CacheDir, "font3");
-
-                byte[] unknown = new byte[input.Length - input.Position];
-                input.Read(unknown, 0, unknown.Length);
-                string rawDir = CacheDir + "/RAW";
-                Directory.CreateDirectory(rawDir);
-                File.WriteAllBytes(Path.Combine(rawDir, "ALLFONTS_UNKNOWN_PART.bin"), unknown);
-            }
+            string rawDir = CacheDir + "/RAW";
+            Directory.CreateDirectory(rawDir);
+            File.WriteAllBytes(Path.Combine(rawDir, "ALLFONTS_UNKNOWN_PART.bin"), UnknownAllFontsData);
         }
 
         private static int DivideWithRoundUp(int x, int y)
