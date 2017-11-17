@@ -49,7 +49,7 @@ namespace Pre2
             using (Stream input = new MemoryStream(SqzUnpacker.Unpack(Path.Combine(SqzDir, "ALLFONTS.SQZ"))))
             {
                 FontYearDevs = ReadTiles(input, 41, FontYearDevsInfo.W, FontYearDevsInfo.H);
-                byte[] panelImageRaw = new byte[3680];
+                byte[] panelImageRaw = new byte[PanelImageInfo.W * PanelImageInfo.H / 2];
                 input.Read(panelImageRaw, 0, panelImageRaw.Length);
                 PanelImage = ConvertIndex4ToIndex8Bytes(ConvertPlanarIndex4Bytes(panelImageRaw));
                 PanelSprites = ReadTiles(input, 17, PanelSpritesInfo.W, PanelSpritesInfo.H);
@@ -423,7 +423,7 @@ namespace Pre2
             byte[] palDefault = LevelPalettes[0];
 
             GenerateTileSet(FontYearDevs, palYearDevs, FontYearDevs.Length, FontYearDevsInfo.W, FontYearDevsInfo.H, CacheDir, "FontYearDevs");
-            ConvertIndex4(PanelImage, Path.Combine(CacheDir, "panel.png"), palDefault, PanelImageInfo.W, PanelImageInfo.H);
+            WritePng8(Path.Combine(CacheDir, "panel.png"), PanelImage, palDefault, PanelImageInfo.W, PanelImageInfo.H);
             GenerateTileSet(PanelSprites, palDefault, PanelSprites.Length, PanelSpritesInfo.W, PanelSpritesInfo.H, CacheDir, "PanelSprites");
             GenerateTileSet(FontUnknown, palDefault, FontUnknown.Length, FontUnknownInfo.W, FontUnknownInfo.H, CacheDir, "FontUnknown");
 
