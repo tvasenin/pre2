@@ -159,10 +159,10 @@ namespace Pre2
 
             public SpriteSetEntry(int posX, int posY, int width, int height)
             {
-                this.PosX = posX;
-                this.PosY = posY;
-                this.Width = width;
-                this.Height = height;
+                PosX = posX;
+                PosY = posY;
+                Width = width;
+                Height = height;
             }
         }
 
