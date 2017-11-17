@@ -31,6 +31,9 @@ namespace Pre2
         private static readonly byte[][] FrontTiles = ReadTiles(SqzUnpacker.Unpack(Path.Combine(SqzDir, "FRONT.SQZ")), NumFrontTiles, TileSide, TileSide);
         private static readonly byte[][] UnionTiles = ReadTiles(SqzUnpacker.Unpack(Path.Combine(SqzDir, "UNION.SQZ")), NumUnionTiles, TileSide, TileSide);
 
+        private static readonly SpriteData[] SpriteSetEntries = ReadSpriteSetEntries(Path.Combine(ResDir, "sprites.txt"), NumSprites);
+        private static readonly byte[][] SpriteImages = ReadSprites(SqzUnpacker.Unpack(Path.Combine(SqzDir, "SPRITES.SQZ")), SpriteSetEntries);
+
         private static readonly SpriteInfo FontYearDevsInfo = new SpriteInfo { W =  8, H = 12 };
         private static readonly SpriteInfo PanelSpritesInfo = new SpriteInfo { W = 16, H = 12 };
         private static readonly SpriteInfo FontUnknownInfo  = new SpriteInfo { W = 16, H = 11 };
@@ -150,37 +153,14 @@ namespace Pre2
             File.WriteAllBytes(destFilename, data);
         }
 
-        private struct SpriteSetEntry
-        {
-            public int PosX { get; }
-            public int PosY { get; }
-            public int Width { get; }
-            public int Height { get; }
-
-            public SpriteSetEntry(int posX, int posY, int width, int height)
-            {
-                PosX = posX;
-                PosY = posY;
-                Width = width;
-                Height = height;
-            }
-        }
-
         private static void GenerateSpriteSet(byte[] pal)
         {
-
-            string resPath = Path.Combine(ResDir, "sprites.txt");
-            SpriteSetEntry[] entries = ReadSpriteSetEntries(resPath);
-
-            byte[] rawSprites = SqzUnpacker.Unpack(Path.Combine(SqzDir, "SPRITES.SQZ"));
-            byte[][] sprites = ReadSprites(rawSprites, entries);
-
             int spritesheetW = 0;
             int spritesheetH = 0;
-            foreach (SpriteSetEntry entry in entries)
+            foreach (SpriteData entry in SpriteSetEntries)
             {
-                int localW = entry.PosX + entry.Width;
-                int localH = entry.PosY + entry.Height;
+                int localW = entry.X + entry.W;
+                int localH = entry.Y + entry.H;
                 if (spritesheetW < localW) { spritesheetW = localW; }
                 if (spritesheetH < localH) { spritesheetH = localH; }
             }
@@ -188,14 +168,14 @@ namespace Pre2
             byte[][] image = new byte[spritesheetH][];
             for (var i = 0; i < image.Length; i++) { image[i] = new byte[spritesheetW]; }
 
-            for (var i = 0; i < entries.Length; i++)
+            for (var i = 0; i < SpriteSetEntries.Length; i++)
             {
-                SpriteSetEntry entry = entries[i];
-                byte[] sprite = sprites[i];
-                for (var spriteLine = 0; spriteLine < entry.Height; spriteLine++)
+                SpriteData entry = SpriteSetEntries[i];
+                byte[] sprite = SpriteImages[i];
+                for (var spriteLine = 0; spriteLine < entry.H; spriteLine++)
                 {
-                    int targetLine = entry.PosY + spriteLine;
-                    Array.Copy(sprite, spriteLine * entry.Width, image[targetLine], entry.PosX, entry.Width);
+                    int targetLine = entry.Y + spriteLine;
+                    Array.Copy(sprite, spriteLine * entry.W, image[targetLine], entry.X, entry.W);
                 }
             }
 
@@ -212,34 +192,35 @@ namespace Pre2
                 pngw.End();
             }
 
+            string resPath = Path.Combine(ResDir, "sprites.txt");
             string spriteset = Path.Combine(CacheDir, Path.GetFileName(resPath));
             File.Copy(resPath, spriteset, true);
         }
 
-        private static SpriteSetEntry[] ReadSpriteSetEntries(string txtFilename)
+        private static SpriteData[] ReadSpriteSetEntries(string txtFilename, int numSprites)
         {
             string[] lines = File.ReadAllLines(txtFilename);
-            SpriteSetEntry[] entries = new SpriteSetEntry[NumSprites];
+            SpriteData[] entries = new SpriteData[numSprites];
             for (var i = 0; i < lines.Length; i++)
             {
                 string line = lines[i];
                 if (String.IsNullOrWhiteSpace(line)) { continue; }
                 string[] data = line.Split(new[] {' '}, StringSplitOptions.RemoveEmptyEntries);
                 if (data.Length != 6 || !data[1].Equals("=")) { throw  new InvalidDataException("Spritesheet error at line " + i); }
-                entries[i] = new SpriteSetEntry(int.Parse(data[2]), int.Parse(data[3]), int.Parse(data[4]), int.Parse(data[5]));
+                entries[i] = new SpriteData { X = int.Parse(data[2]), Y = int.Parse(data[3]), W = int.Parse(data[4]), H = int.Parse(data[5]) };
             }
             return entries;
         }
 
-        private static byte[][] ReadSprites(byte[] rawSprites, SpriteSetEntry[] entries)
+        private static byte[][] ReadSprites(byte[] rawSprites, SpriteData[] entries)
         {
             byte[][] sprites = new byte[entries.Length][];
             using (Stream input = new MemoryStream(rawSprites, false))
             {
                 for (var i = 0; i < entries.Length; i++)
                 {
-                    SpriteSetEntry entry = entries[i];
-                    ImageInfo imi = new ImageInfo(entry.Width, entry.Height, 4, false, false, true);
+                    SpriteData entry = entries[i];
+                    ImageInfo imi = new ImageInfo(entry.W, entry.H, 4, false, false, true);
                     int inputLength = imi.BytesPerRow * imi.Rows;
                     byte[] buffer = new byte[inputLength];
                     input.Read(buffer, 0, inputLength);
