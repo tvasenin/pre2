@@ -153,36 +153,46 @@ namespace Pre2
             File.WriteAllBytes(destFilename, data);
         }
 
-        private static void GenerateSpriteSet(byte[] pal)
+        private static SpriteInfo GetSpritesheetInfo(SpriteData[] entries)
         {
-            int spritesheetW = 0;
-            int spritesheetH = 0;
-            foreach (SpriteData entry in SpriteSetEntries)
+            SpriteInfo info = new SpriteInfo();
+            foreach (SpriteData entry in entries)
             {
                 int localW = entry.X + entry.W;
                 int localH = entry.Y + entry.H;
-                if (spritesheetW < localW) { spritesheetW = localW; }
-                if (spritesheetH < localH) { spritesheetH = localH; }
+                if (info.W < localW) { info.W = localW; }
+                if (info.H < localH) { info.H = localH; }
             }
+            return info;
+        }
 
-            byte[][] image = new byte[spritesheetH][];
-            for (var i = 0; i < image.Length; i++) { image[i] = new byte[spritesheetW]; }
+        private static byte[][] GenerateSpriteSheetImage(byte[][] sprites, SpriteInfo spriteSheetInfo, SpriteData[] entries)
+        {
+            byte[][] image = new byte[spriteSheetInfo.H][];
+            for (var i = 0; i < image.Length; i++) { image[i] = new byte[spriteSheetInfo.W]; }
 
             for (var i = 0; i < SpriteSetEntries.Length; i++)
             {
-                SpriteData entry = SpriteSetEntries[i];
-                byte[] sprite = SpriteImages[i];
+                SpriteData entry = entries[i];
+                byte[] sprite = sprites[i];
                 for (var spriteLine = 0; spriteLine < entry.H; spriteLine++)
                 {
                     int targetLine = entry.Y + spriteLine;
                     Array.Copy(sprite, spriteLine * entry.W, image[targetLine], entry.X, entry.W);
                 }
             }
+            return image;
+        }
+
+        private static void GenerateSpriteSet(byte[] pal)
+        {
+            SpriteInfo spriteSheetInfo = GetSpritesheetInfo(SpriteSetEntries);
+            byte[][] image = GenerateSpriteSheetImage(SpriteImages, spriteSheetInfo, SpriteSetEntries);
 
             using (FileStream outPng = File.Create(Path.Combine(CacheDir, "sprites.png")))
             {
                 int numPaletteEntries = pal.Length / 3;
-                ImageInfo imiPng = new ImageInfo(spritesheetW, spritesheetH, 8, false, false, true);
+                ImageInfo imiPng = new ImageInfo(spriteSheetInfo.W, spriteSheetInfo.H, 8, false, false, true);
                 PngWriter pngw = new PngWriter(outPng, imiPng);
                 PngChunkPLTE palette = pngw.GetMetadata().CreatePLTEChunk();
                 FillPalette(palette, numPaletteEntries, pal);
