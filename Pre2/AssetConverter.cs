@@ -10,7 +10,7 @@ namespace Pre2
     public static class AssetConverter
     {
         private const string SqzDir = "sqz";
-        private const string CacheDir = "cache";
+        public const string CacheDir = "cache";
         private const string ResDir = "res";
         private const string SoundDir = CacheDir + "/audio";
 
