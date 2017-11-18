@@ -2,6 +2,7 @@
 using Hjg.Pngcs.Chunks;
 using System;
 using System.IO;
+using System.Text;
 using System.Xml;
 using Tilengine;
 
@@ -39,6 +40,7 @@ namespace Pre2
         private static readonly SpriteInfo BackgroundInfo = new SpriteInfo { W = 320, H = 200 };
         private static readonly SpriteInfo MapInfo = new SpriteInfo { W = 640, H = 200 };
 
+        private static readonly byte[] FontYearDevsCharCodes = Encoding.ASCII.GetBytes("0123456789!?.$_ABCDEFGHIJKLMNOPQRSTUVWXYZ");
         private static readonly SpriteInfo FontYearDevsInfo = new SpriteInfo { W =  8, H = 12 };
         private static readonly SpriteInfo PanelSpritesInfo = new SpriteInfo { W = 16, H = 12 };
         private static readonly SpriteInfo FontUnknownInfo  = new SpriteInfo { W = 16, H = 11 };
@@ -139,6 +141,40 @@ namespace Pre2
             int numRows = LevelNumRows[levelIdx];
             Palette palette = GetLevelPalette(levelIdx);
             return GenerateLevelTilemap(rawData, numRows, palette);
+        }
+
+        public static Bitmap GetYearBitmap()
+        {
+            int width = BackgroundInfo.W;
+            int height = BackgroundInfo.H;
+            byte[] image = new byte[width * height];
+            int year = DateTime.Now.Year;
+            if (year >= 1996 && year < 2067) // sic!
+            {
+                DrawYearLine(image,  5, 5, "YEAAA . . .");
+                DrawYearLine(image,  6, 0, "MY GAME IS STILL WORKING IN " + year + " !!");
+                DrawYearLine(image, 12, 1, "PROGRAMMED IN 1992 ON AT .286 12MHZ.");
+                DrawYearLine(image, 13, 3, ". . . ENJOY OLDIES!!");
+            }
+            Palette palette = GetPalette(File.ReadAllBytes(Path.Combine(ResDir, "year_devs.pal")));
+            Bitmap bitmap = new Bitmap(width, height, 8) { PixelData = image, Palette = palette };
+            return bitmap;
+        }
+
+        private static void DrawYearLine(byte[] image, int row, int col, string textLine)
+        {
+            byte[] asciiBytes = Encoding.ASCII.GetBytes(textLine);
+            foreach (byte c in asciiBytes)
+            {
+                int idx = Array.IndexOf(FontYearDevsCharCodes, c);
+                if (idx != -1)
+                {
+                    int dstX = col * FontYearDevsInfo.W;
+                    int dstY = row * FontYearDevsInfo.H;
+                    CopyPixels(FontYearDevs[idx], FontYearDevsInfo, image, BackgroundInfo.W, dstX, dstY);
+                }
+                col++;
+            }
         }
 
         private static void UnpackTrk(string resource)
@@ -391,10 +427,8 @@ namespace Pre2
 
         private static void ConvertAllFonts()
         {
-            byte[] palYearDevs = File.ReadAllBytes(Path.Combine(ResDir, "year_devs.pal"));
             byte[] palDefault = LevelPalettes[0];
 
-            GenerateTileSet(FontYearDevs, palYearDevs, FontYearDevs.Length, FontYearDevsInfo, CacheDir, "FontYearDevs");
             WritePng8(Path.Combine(CacheDir, "panel.png"), PanelImage, palDefault, PanelImageInfo);
             GenerateTileSet(PanelSprites, palDefault, PanelSprites.Length, PanelSpritesInfo, CacheDir, "PanelSprites");
             GenerateTileSet(FontUnknown, palDefault, FontUnknown.Length, FontUnknownInfo, CacheDir, "FontUnknown");
