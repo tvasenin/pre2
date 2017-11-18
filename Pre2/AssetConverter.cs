@@ -105,17 +105,8 @@ namespace Pre2
 
         public static Palette GetLevelPalette(int levelIdx)
         {
-            int numPaletteEntries = 16;
             byte[] vgaPalette = LevelPalettes[LevelPals[levelIdx]];
-            Palette palette = new Palette(numPaletteEntries);
-            for (var i = 0; i < numPaletteEntries; i++)
-            {
-                byte r = ConvertVgaToRgb(vgaPalette[i * 3 + 0]);
-                byte g = ConvertVgaToRgb(vgaPalette[i * 3 + 1]);
-                byte b = ConvertVgaToRgb(vgaPalette[i * 3 + 2]);
-                palette.SetColor(i, new Color(r, g, b));
-            }
-            return palette;
+            return GetPalette(vgaPalette);
         }
 
         public static Bitmap GetLevelBackground(int levelIdx)
@@ -536,6 +527,20 @@ namespace Pre2
                 }
             }
             return palettes;
+        }
+
+        private static Palette GetPalette(byte[] vgaPalette)
+        {
+            int numEntries = vgaPalette.Length / 3;
+            Palette palette = new Palette(numEntries);
+            for (var i = 0; i < numEntries; i++)
+            {
+                byte r = ConvertVgaToRgb(vgaPalette[i * 3 + 0]);
+                byte g = ConvertVgaToRgb(vgaPalette[i * 3 + 1]);
+                byte b = ConvertVgaToRgb(vgaPalette[i * 3 + 2]);
+                palette.SetColor(i, new Color(r, g, b));
+            }
+            return palette;
         }
 
         private static byte ConvertVgaToRgb(byte sixBitValue)
