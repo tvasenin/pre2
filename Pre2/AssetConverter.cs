@@ -157,20 +157,15 @@ namespace Pre2
             return info;
         }
 
-        private static byte[][] GenerateSpriteSheetImage(byte[][] sprites, SpriteInfo spriteSheetInfo, SpriteData[] entries)
+        private static byte[] GenerateSpriteSheetImage(byte[][] sprites, SpriteInfo spriteSheetInfo, SpriteData[] entries)
         {
-            byte[][] image = new byte[spriteSheetInfo.H][];
-            for (var i = 0; i < image.Length; i++) { image[i] = new byte[spriteSheetInfo.W]; }
-
+            byte[] image = new byte[spriteSheetInfo.H * spriteSheetInfo.W];
             for (var i = 0; i < SpriteSetEntries.Length; i++)
             {
                 SpriteData entry = entries[i];
                 byte[] sprite = sprites[i];
-                for (var spriteLine = 0; spriteLine < entry.H; spriteLine++)
-                {
-                    int targetLine = entry.Y + spriteLine;
-                    Array.Copy(sprite, spriteLine * entry.W, image[targetLine], entry.X, entry.W);
-                }
+                SpriteInfo spriteInfo = new SpriteInfo { W = entry.W, H = entry.H };
+                CopyPixels(sprite, spriteInfo, image, spriteSheetInfo.W, entry.X, entry.Y);
             }
             return image;
         }
@@ -178,20 +173,10 @@ namespace Pre2
         private static void GenerateSpriteSet(byte[] pal)
         {
             SpriteInfo spriteSheetInfo = GetSpritesheetInfo(SpriteSetEntries);
-            byte[][] image = GenerateSpriteSheetImage(SpriteImages, spriteSheetInfo, SpriteSetEntries);
+            byte[] image = GenerateSpriteSheetImage(SpriteImages, spriteSheetInfo, SpriteSetEntries);
 
-            using (FileStream outPng = File.Create(Path.Combine(CacheDir, "sprites.png")))
-            {
-                int numPaletteEntries = pal.Length / 3;
-                ImageInfo imiPng = new ImageInfo(spriteSheetInfo.W, spriteSheetInfo.H, 8, false, false, true);
-                PngWriter pngw = new PngWriter(outPng, imiPng);
-                PngChunkPLTE palette = pngw.GetMetadata().CreatePLTEChunk();
-                FillPalette(palette, numPaletteEntries, pal);
-                PngChunkTRNS trns = pngw.GetMetadata().CreateTRNSChunk();
-                trns.setIndexEntryAsTransparent(0);
-                pngw.WriteRowsByte(image);
-                pngw.End();
-            }
+            string filename = Path.Combine(CacheDir, "sprites.png");
+            WritePng8(filename, image, pal, spriteSheetInfo.W, spriteSheetInfo.H, true);
 
             string resPath = Path.Combine(ResDir, "sprites.txt");
             string spriteset = Path.Combine(CacheDir, Path.GetFileName(resPath));
@@ -427,41 +412,23 @@ namespace Pre2
             int outWidth = tileWidth * tilesPerRow;
             int outHeight = tileHeight * tilesPerColumn;
 
-            int bytesPerTileRow = tileWidth; // assume 8bpp
-            
-            const int numPaletteEntries = 16;
+            SpriteInfo tileInfo = new SpriteInfo { W = tileWidth, H = tileHeight };
+            SpriteInfo imageInfo = new SpriteInfo { W = outWidth, H = outHeight };
 
-            using (FileStream outPng = File.Create(Path.Combine(outPath, baseFileName + ".png")))
+            byte[] imagePixels = new byte[imageInfo.W * imageInfo.H];
+            for (var row = 0; row < tilesPerColumn; row++)
             {
-                ImageInfo imiPng = new ImageInfo(outWidth, outHeight, 8, false, false, true);
-                PngWriter pngw = new PngWriter(outPng, imiPng);
-                PngChunkPLTE palette = pngw.GetMetadata().CreatePLTEChunk();
-                FillPalette(palette, numPaletteEntries, pal);
-                PngChunkTRNS trns = pngw.GetMetadata().CreateTRNSChunk();
-                trns.setIndexEntryAsTransparent(0);
-                byte[] row = new byte[imiPng.BytesPerRow];
-                for (var i = 0; i < tilesPerColumn; i++)
+                for (var col = 0; col < tilesPerRow; col++)
                 {
-                    for (var line = 0; line < tileHeight; line++)
+                    int tileIdx = row * tilesPerRow + col;
+                    if (tileIdx < tiles.Length)
                     {
-                        int offsetInsideTile = line * bytesPerTileRow;
-                        for (var j = 0; j < tilesPerRow; j++)
-                        {
-                            int tileIndex = i * tilesPerRow + j;
-                            if (tileIndex < numTiles)
-                            {
-                                Array.Copy(tiles[tileIndex], offsetInsideTile, row, j * bytesPerTileRow, bytesPerTileRow);
-                            }
-                            else
-                            {
-                                Array.Clear(row, j * bytesPerTileRow, bytesPerTileRow); // fill with zeroes
-                            }
-                        }
-                        pngw.WriteRowByte(row, i * tileHeight + line);
+                        CopyPixels(tiles[tileIdx], tileInfo, imagePixels, imageInfo.W, col * tileWidth, row * tileHeight);
                     }
                 }
-                pngw.End();
             }
+            string pngFilename = Path.Combine(outPath, baseFileName + ".png");
+            WritePng8(pngFilename, imagePixels, pal, imageInfo.W, imageInfo.H, true);
             WriteTsx(baseFileName, outPath, tileWidth, tileHeight, outWidth, outHeight);
         }
 
@@ -564,7 +531,7 @@ namespace Pre2
             }
         }
 
-        private static void WritePng8(string filename, byte[] indexBytes, byte[] palVga, int width, int height)
+        private static void WritePng8(string filename, byte[] indexBytes, byte[] palVga, int width, int height, bool isTransparent = false)
         {
             ImageInfo imiPng = new ImageInfo(width, height, 8, false, false, true);
             int numBytesRowPng = imiPng.BytesPerRow;
@@ -575,12 +542,35 @@ namespace Pre2
                 PngWriter pngw = new PngWriter(output, imiPng);
                 PngChunkPLTE palette = pngw.GetMetadata().CreatePLTEChunk();
                 FillPalette(palette, numPaletteEntries, palVga);
+                if (isTransparent)
+                {
+                    PngChunkTRNS trns = pngw.GetMetadata().CreateTRNSChunk();
+                    trns.setIndexEntryAsTransparent(0);
+                }
                 for (var i = 0; i < imiPng.Rows; i++)
                 {
                     Array.Copy(indexBytes, i * numBytesRowPng, row, 0, row.Length);
                     pngw.WriteRowByte(row, i);
                 }
                 pngw.End();
+            }
+        }
+
+        private static void CopyPixels(byte[] srcPixels, SpriteInfo srcInfo, byte[] dstPixels, int dstStride, int dstX, int dstY)
+        {
+            SpriteData srcData = new SpriteData { X = 0, Y = 0, W = srcInfo.W, H = srcInfo.H };
+            CopyPixels(srcPixels, srcInfo.W, srcData, dstPixels, dstStride, dstX, dstY);
+        }
+
+        private static void CopyPixels(byte[] srcPixels, int srcStride, SpriteData srcData, byte[] dstPixels, int dstStride, int dstX, int dstY)
+        {
+            for (var i = 0; i < srcData.H; i++)
+            {
+                int srcLine = srcData.Y + i;
+                int dstLine = dstY + i;
+                int srcIdx = (srcLine * srcStride) + srcData.X;
+                int dstIdx = (dstLine * dstStride) + dstX;
+                Array.Copy(srcPixels, srcIdx, dstPixels, dstIdx, srcData.W);
             }
         }
 
