@@ -21,6 +21,8 @@ namespace Pre2
         private const int NumFrontTiles = 163;
         private const int NumUnionTiles = 544;
 
+        private static readonly SpriteInfo DefaultTileInfo = new SpriteInfo { W = TileSide, H = TileSide };
+
         private static readonly byte[][] LevelPalettes = ReadLevelPalettes(Path.Combine(ResDir, "levels.pals"));
 
         private static readonly char[] LevelSuffixes = {  '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F', 'G'};
@@ -28,11 +30,14 @@ namespace Pre2
         private static readonly byte[] LevelPals     = {   8,  10,   7,   6,   3,   5,   1,   4,   2,   2,  11,  11,  11,  12,   2,   1 }; // no pal #0 and #9!
         private static readonly char[] BackSuffixes  = {  '0', '0', '0', '1', '1', '1', '2', '3', '3', '0', '4', '4', '4', '5', '0', '2'};
 
-        private static readonly byte[][] FrontTiles = ReadTiles(SqzUnpacker.Unpack(Path.Combine(SqzDir, "FRONT.SQZ")), NumFrontTiles, TileSide, TileSide);
-        private static readonly byte[][] UnionTiles = ReadTiles(SqzUnpacker.Unpack(Path.Combine(SqzDir, "UNION.SQZ")), NumUnionTiles, TileSide, TileSide);
+        private static readonly byte[][] FrontTiles = ReadTiles(SqzUnpacker.Unpack(Path.Combine(SqzDir, "FRONT.SQZ")), NumFrontTiles, DefaultTileInfo);
+        private static readonly byte[][] UnionTiles = ReadTiles(SqzUnpacker.Unpack(Path.Combine(SqzDir, "UNION.SQZ")), NumUnionTiles, DefaultTileInfo);
 
         private static readonly SpriteData[] SpriteSetEntries = ReadSpriteSetEntries(Path.Combine(ResDir, "sprites.txt"), NumSprites);
         private static readonly byte[][] SpriteImages = ReadSprites(SqzUnpacker.Unpack(Path.Combine(SqzDir, "SPRITES.SQZ")), SpriteSetEntries);
+
+        private static readonly SpriteInfo BackgroundInfo = new SpriteInfo { W = 320, H = 200 };
+        private static readonly SpriteInfo MapInfo = new SpriteInfo { W = 640, H = 200 };
 
         private static readonly SpriteInfo FontYearDevsInfo = new SpriteInfo { W =  8, H = 12 };
         private static readonly SpriteInfo PanelSpritesInfo = new SpriteInfo { W = 16, H = 12 };
@@ -51,12 +56,12 @@ namespace Pre2
             // Read AllFonts
             using (Stream input = new MemoryStream(SqzUnpacker.Unpack(Path.Combine(SqzDir, "ALLFONTS.SQZ"))))
             {
-                FontYearDevs = ReadTiles(input, 41, FontYearDevsInfo.W, FontYearDevsInfo.H);
+                FontYearDevs = ReadTiles(input, 41, FontYearDevsInfo);
                 byte[] panelImageRaw = new byte[PanelImageInfo.W * PanelImageInfo.H / 2];
                 input.Read(panelImageRaw, 0, panelImageRaw.Length);
                 PanelImage = ConvertIndex4ToIndex8Bytes(ConvertPlanarIndex4Bytes(panelImageRaw));
-                PanelSprites = ReadTiles(input, 17, PanelSpritesInfo.W, PanelSpritesInfo.H);
-                FontUnknown = ReadTiles(input, 10, FontUnknownInfo.W, FontUnknownInfo.H);
+                PanelSprites = ReadTiles(input, 17, PanelSpritesInfo);
+                FontUnknown = ReadTiles(input, 10, FontUnknownInfo);
                 input.Read(UnknownAllFontsData, 0, UnknownAllFontsData.Length);
             }
         }
@@ -72,16 +77,16 @@ namespace Pre2
             ConvertIndex8WithPalette("TITUS");
 
             // Palette for MENU2 is concatenated at the end of the image (using a copy for convenience)!
-            ConvertIndex4("GAMEOVER", File.ReadAllBytes(Path.Combine(ResDir, "gameover.pal")), 320, 200);
-            ConvertIndex4("MAP",      File.ReadAllBytes(Path.Combine(ResDir, "map.pal")),      640, 200);
-            ConvertIndex4("MENU2",    File.ReadAllBytes(Path.Combine(ResDir, "menu2.pal")),    320, 200);
-            ConvertIndex4("MOTIF",    File.ReadAllBytes(Path.Combine(ResDir, "motif.pal")),    320, 200);
+            ConvertIndex4("GAMEOVER", File.ReadAllBytes(Path.Combine(ResDir, "gameover.pal")), BackgroundInfo);
+            ConvertIndex4("MAP",      File.ReadAllBytes(Path.Combine(ResDir, "map.pal")),      MapInfo);
+            ConvertIndex4("MENU2",    File.ReadAllBytes(Path.Combine(ResDir, "menu2.pal")),    BackgroundInfo);
+            ConvertIndex4("MOTIF",    File.ReadAllBytes(Path.Combine(ResDir, "motif.pal")),    BackgroundInfo);
 
             ConvertTitle("PRESENT");
 
             GenerateSpriteSet(LevelPalettes[0]);
 
-            GenerateTileSet(FrontTiles, LevelPalettes[0], NumFrontTiles, TileSide, TileSide, CacheDir, "FRONT");
+            GenerateTileSet(FrontTiles, LevelPalettes[0], NumFrontTiles, DefaultTileInfo, CacheDir, "FRONT");
 
             Directory.CreateDirectory(SoundDir);
             UnpackTrk("BOULA");
@@ -176,7 +181,7 @@ namespace Pre2
             byte[] image = GenerateSpriteSheetImage(SpriteImages, spriteSheetInfo, SpriteSetEntries);
 
             string filename = Path.Combine(CacheDir, "sprites.png");
-            WritePng8(filename, image, pal, spriteSheetInfo.W, spriteSheetInfo.H, true);
+            WritePng8(filename, image, pal, spriteSheetInfo, true);
 
             string resPath = Path.Combine(ResDir, "sprites.txt");
             string spriteset = Path.Combine(CacheDir, Path.GetFileName(resPath));
@@ -230,37 +235,37 @@ namespace Pre2
                 input.Read(pal, 0, pal.Length);
                 input.Read(indexBytes, 0, indexBytes.Length);
             }
-            WritePng8(destFilename, indexBytes, pal, 320, 200);
+            WritePng8(destFilename, indexBytes, pal, BackgroundInfo);
         }
 
-        private static void ConvertIndex4(string resource, byte[] pal, int width, int height)
+        private static void ConvertIndex4(string resource, byte[] pal, SpriteInfo imageInfo)
         {
             string destFilename = Path.Combine(CacheDir, resource + ".png");
             string sqzFilename = Path.Combine(SqzDir, resource + ".SQZ");
-            ConvertIndex4(sqzFilename, destFilename, pal, width, height);
+            ConvertIndex4(sqzFilename, destFilename, pal, imageInfo);
         }
 
-        private static void ConvertIndex4(string sqzFilename, string destFilename, byte[] pal, int width, int height)
+        private static void ConvertIndex4(string sqzFilename, string destFilename, byte[] pal, SpriteInfo imageInfo)
         {
             byte[] rawData = SqzUnpacker.Unpack(sqzFilename);
             using (Stream input = new MemoryStream(rawData))
             {
-                ConvertIndex4(input, destFilename, pal, width, height);
+                ConvertIndex4(input, destFilename, pal, imageInfo);
             }
         }
 
-        private static void ConvertIndex4(Stream input, string destFilename, byte[] pal, int width, int height)
+        private static void ConvertIndex4(Stream input, string destFilename, byte[] pal, SpriteInfo imageInfo)
         {
-            int numBytesInput = width * height / 2; // 4bpp!
+            int numBytesInput = imageInfo.W * imageInfo.H / 2; // 4bpp!
             byte[] rawData = new byte[numBytesInput];
             input.Read(rawData, 0, rawData.Length);
-            ConvertIndex4(rawData, destFilename, pal, width, height);
+            ConvertIndex4(rawData, destFilename, pal, imageInfo);
         }
 
-        private static void ConvertIndex4(byte[] rawData, string destFilename, byte[] pal, int width, int height)
+        private static void ConvertIndex4(byte[] rawData, string destFilename, byte[] pal, SpriteInfo imageInfo)
         {
             byte[] indexBytes = ConvertIndex4ToIndex8Bytes(ConvertPlanarIndex4Bytes(rawData));
-            WritePng8(destFilename, indexBytes,pal, width, height);
+            WritePng8(destFilename, indexBytes,pal, imageInfo);
         }
 
         private static void ConvertTitle(string resource)
@@ -285,8 +290,8 @@ namespace Pre2
             }
             string destBackground = Path.Combine(CacheDir, resource + "_B" + ".png");
             string destForeground = Path.Combine(CacheDir, resource + "_F" + ".png");
-            WritePng8(destBackground, imageBackground, pal, 320, 200);
-            WritePng8(destForeground, imageForeground, pal, 320, 200);
+            WritePng8(destBackground, imageBackground, pal, BackgroundInfo);
+            WritePng8(destForeground, imageForeground, pal, BackgroundInfo);
         }
 
         public static Bitmap GetDevPhoto()
@@ -343,7 +348,7 @@ namespace Pre2
                         maxLocalIdx = (short) v;
                     }
                 }
-                localTiles = ReadTiles(br.BaseStream, maxLocalIdx + 1, TileSide, TileSide);
+                localTiles = ReadTiles(br.BaseStream, maxLocalIdx + 1, DefaultTileInfo);
             }
 
             Tileset tileset = new Tileset(lut.Length, TileSide, TileSide, palette, new SequencePack(), null);
@@ -389,10 +394,10 @@ namespace Pre2
             byte[] palYearDevs = File.ReadAllBytes(Path.Combine(ResDir, "year_devs.pal"));
             byte[] palDefault = LevelPalettes[0];
 
-            GenerateTileSet(FontYearDevs, palYearDevs, FontYearDevs.Length, FontYearDevsInfo.W, FontYearDevsInfo.H, CacheDir, "FontYearDevs");
-            WritePng8(Path.Combine(CacheDir, "panel.png"), PanelImage, palDefault, PanelImageInfo.W, PanelImageInfo.H);
-            GenerateTileSet(PanelSprites, palDefault, PanelSprites.Length, PanelSpritesInfo.W, PanelSpritesInfo.H, CacheDir, "PanelSprites");
-            GenerateTileSet(FontUnknown, palDefault, FontUnknown.Length, FontUnknownInfo.W, FontUnknownInfo.H, CacheDir, "FontUnknown");
+            GenerateTileSet(FontYearDevs, palYearDevs, FontYearDevs.Length, FontYearDevsInfo, CacheDir, "FontYearDevs");
+            WritePng8(Path.Combine(CacheDir, "panel.png"), PanelImage, palDefault, PanelImageInfo);
+            GenerateTileSet(PanelSprites, palDefault, PanelSprites.Length, PanelSpritesInfo, CacheDir, "PanelSprites");
+            GenerateTileSet(FontUnknown, palDefault, FontUnknown.Length, FontUnknownInfo, CacheDir, "FontUnknown");
 
             string rawDir = CacheDir + "/RAW";
             Directory.CreateDirectory(rawDir);
@@ -404,15 +409,14 @@ namespace Pre2
             return x / y + (x % y > 0 ? 1 : 0);
         }
 
-        private static void GenerateTileSet(byte[][] tiles, byte[] pal, int tilesPerRow, int tileWidth, int tileHeight, string outPath, string baseFileName)
+        private static void GenerateTileSet(byte[][] tiles, byte[] pal, int tilesPerRow, SpriteInfo tileInfo, string outPath, string baseFileName)
         {
             int numTiles = tiles.Length;
             int tilesPerColumn = DivideWithRoundUp(numTiles,tilesPerRow);
 
-            int outWidth = tileWidth * tilesPerRow;
-            int outHeight = tileHeight * tilesPerColumn;
+            int outWidth = tileInfo.W * tilesPerRow;
+            int outHeight = tileInfo.H * tilesPerColumn;
 
-            SpriteInfo tileInfo = new SpriteInfo { W = tileWidth, H = tileHeight };
             SpriteInfo imageInfo = new SpriteInfo { W = outWidth, H = outHeight };
 
             byte[] imagePixels = new byte[imageInfo.W * imageInfo.H];
@@ -423,16 +427,16 @@ namespace Pre2
                     int tileIdx = row * tilesPerRow + col;
                     if (tileIdx < tiles.Length)
                     {
-                        CopyPixels(tiles[tileIdx], tileInfo, imagePixels, imageInfo.W, col * tileWidth, row * tileHeight);
+                        CopyPixels(tiles[tileIdx], tileInfo, imagePixels, imageInfo.W, col * tileInfo.W, row * tileInfo.H);
                     }
                 }
             }
             string pngFilename = Path.Combine(outPath, baseFileName + ".png");
-            WritePng8(pngFilename, imagePixels, pal, imageInfo.W, imageInfo.H, true);
-            WriteTsx(baseFileName, outPath, tileWidth, tileHeight, outWidth, outHeight);
+            WritePng8(pngFilename, imagePixels, pal, imageInfo, true);
+            WriteTsx(baseFileName, outPath, tileInfo, imageInfo);
         }
 
-        private static void WriteTsx(string baseFilename, string outPath, int tileWidth, int tileHeight, int outWidth, int outHeight)
+        private static void WriteTsx(string baseFilename, string outPath, SpriteInfo tileInfo, SpriteInfo imageInfo)
         {
             string outFilename = Path.Combine(outPath, baseFilename + ".tsx");
 
@@ -444,30 +448,30 @@ namespace Pre2
 
             XmlElement tileset = doc.CreateElement("tileset");
             tileset.SetAttribute("name", baseFilename); // set tileset name to the base filename
-            tileset.SetAttribute("tilewidth", tileWidth.ToString());
-            tileset.SetAttribute("tileheight", tileHeight.ToString());
+            tileset.SetAttribute("tilewidth", tileInfo.W.ToString());
+            tileset.SetAttribute("tileheight", tileInfo.H.ToString());
             doc.AppendChild(tileset);
 
             XmlElement image = doc.CreateElement("image");
             image.SetAttribute("source", baseFilename + ".png");
-            image.SetAttribute("width", outWidth.ToString());
-            image.SetAttribute("height", outHeight.ToString());
+            image.SetAttribute("width", imageInfo.W.ToString());
+            image.SetAttribute("height", imageInfo.H.ToString());
             tileset.AppendChild(image);
 
             doc.Save(outFilename);
         }
 
-        private static byte[][] ReadTiles(byte[] rawTiles, int numTiles, int tileWidth, int tileHeight)
+        private static byte[][] ReadTiles(byte[] rawTiles, int numTiles, SpriteInfo tileInfo)
         {
             using (Stream input = new MemoryStream(rawTiles, false))
             {
-                return ReadTiles(input, numTiles, tileWidth, tileHeight);
+                return ReadTiles(input, numTiles, tileInfo);
             }
         }
 
-        private static byte[][] ReadTiles(Stream input, int numTiles, int tileWidth, int tileHeight)
+        private static byte[][] ReadTiles(Stream input, int numTiles, SpriteInfo tileInfo)
         {
-            ImageInfo tileImageInfoInput = new ImageInfo(tileWidth, tileHeight, 4, false, false, true);
+            ImageInfo tileImageInfoInput = new ImageInfo(tileInfo.W, tileInfo.H, 4, false, false, true);
             int tileLength = tileImageInfoInput.BytesPerRow * tileImageInfoInput.Rows;
             byte[][] tiles = new byte[numTiles][];
             byte[] buffer = new byte[tileLength];
@@ -531,9 +535,9 @@ namespace Pre2
             }
         }
 
-        private static void WritePng8(string filename, byte[] indexBytes, byte[] palVga, int width, int height, bool isTransparent = false)
+        private static void WritePng8(string filename, byte[] indexBytes, byte[] palVga, SpriteInfo imageInfo, bool isTransparent = false)
         {
-            ImageInfo imiPng = new ImageInfo(width, height, 8, false, false, true);
+            ImageInfo imiPng = new ImageInfo(imageInfo.W, imageInfo.H, 8, false, false, true);
             int numBytesRowPng = imiPng.BytesPerRow;
             byte[] row = new byte[numBytesRowPng];
             int numPaletteEntries = palVga.Length / 3;
