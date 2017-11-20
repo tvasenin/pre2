@@ -163,6 +163,27 @@ namespace Pre2
             return bitmap; // TODO: check palette against DOSBox
         }
 
+        public static Bitmap GetCreditsBitmap()
+        {
+            int width = BackgroundInfo.W;
+            int height = BackgroundInfo.H;
+            byte[] image = new byte[width * height];
+            int w = FontCreditsInfo.W;
+            int h = FontCreditsInfo.H ;
+            DrawFontCreditsLine(image,  1 * w,  8 +  0 * h, "CODER. DESIGNER AND ARTIST DIRECTOR.");
+            DrawFontCreditsLine(image, 14 * w, 10 +  1 * h, "ERIC ZMIRO");
+            DrawFontCreditsLine(image,  4 * w,  2 +  4 * h, ".MAIN GRAPHICS AND BACKGROUND.");
+            DrawFontCreditsLine(image, 11 * w,  4 +  5 * h, "FRANCIS FOURNIER");
+            DrawFontCreditsLine(image,  9 * w,  8 +  7 * h, ".MONSTERS AND HEROS.");
+            DrawFontCreditsLine(image, 11 * w, 10 +  8 * h, "LYES  BELAIDOUNI");
+            DrawFontCreditsLine(image, 15 * w,  6 + 12 * h, "THANKS TO");
+            DrawFontCreditsLine(image,  2 * w,  0 + 14 * h, "CRISTELLE. GIL ESPECHE AND CORINNE.");
+            DrawFontCreditsLine(image,  0 * w,  0 + 15 * h, "SEBASTIEN BECHET AND OLIVIER AKA DELTA.");
+            Palette palette = GetPalette(File.ReadAllBytes(Path.Combine(ResDir, "credits.pal")));
+            Bitmap bitmap = new Bitmap(width, height, 8) { PixelData = image, Palette = palette };
+            return bitmap; // TODO: check palette against DOSBox
+        }
+
         private static void DrawFontCreditsLine(byte[] image, int x, int y, string textLine)
         {
             int col = 0;
