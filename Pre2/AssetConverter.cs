@@ -40,11 +40,11 @@ namespace Pre2
         private static readonly SpriteInfo BackgroundInfo = new SpriteInfo { W = 320, H = 200 };
         private static readonly SpriteInfo MapInfo = new SpriteInfo { W = 640, H = 200 };
 
-        private static readonly byte[] FontYearDevsCharCodes = Encoding.ASCII.GetBytes("0123456789!?.$_ABCDEFGHIJKLMNOPQRSTUVWXYZ");
-        private static readonly SpriteInfo FontYearDevsInfo = new SpriteInfo { W =  8, H = 12 };
+        private static readonly byte[] FontCreditsCharCodes = Encoding.ASCII.GetBytes("0123456789!?.$_ABCDEFGHIJKLMNOPQRSTUVWXYZ");
+        private static readonly SpriteInfo FontCreditsInfo  = new SpriteInfo { W =  8, H = 12 };
         private static readonly SpriteInfo PanelSpritesInfo = new SpriteInfo { W = 16, H = 12 };
         private static readonly SpriteInfo FontUnknownInfo  = new SpriteInfo { W = 16, H = 11 };
-        private static readonly byte[][] FontYearDevs;
+        private static readonly byte[][] FontCreditsDevs;
         private static readonly byte[][] PanelSprites;
         private static readonly byte[][] FontUnknown;
 
@@ -58,7 +58,7 @@ namespace Pre2
             // Read AllFonts
             using (Stream input = new MemoryStream(SqzUnpacker.Unpack(Path.Combine(SqzDir, "ALLFONTS.SQZ"))))
             {
-                FontYearDevs = ReadTiles(input, 41, FontYearDevsInfo);
+                FontCreditsDevs = ReadTiles(input, 41, FontCreditsInfo);
                 byte[] panelImageRaw = new byte[PanelImageInfo.W * PanelImageInfo.H / 2];
                 input.Read(panelImageRaw, 0, panelImageRaw.Length);
                 PanelImage = ConvertIndex4ToIndex8Bytes(ConvertPlanarIndex4Bytes(panelImageRaw));
@@ -151,27 +151,30 @@ namespace Pre2
             int year = DateTime.Now.Year;
             if (year >= 1996 && year < 2067) // sic!
             {
-                DrawYearLine(image,  5, 5, "YEAAA . . .");
-                DrawYearLine(image,  6, 0, "MY GAME IS STILL WORKING IN " + year + " !!");
-                DrawYearLine(image, 12, 1, "PROGRAMMED IN 1992 ON AT .286 12MHZ.");
-                DrawYearLine(image, 13, 3, ". . . ENJOY OLDIES!!");
+                int w = FontCreditsInfo.W;
+                int h = FontCreditsInfo.H;
+                DrawFontCreditsLine(image, 5 * w,  5 * h, "YEAAA . . .");
+                DrawFontCreditsLine(image, 0 * w,  6 * h, "MY GAME IS STILL WORKING IN " + year + " !!");
+                DrawFontCreditsLine(image, 1 * w, 12 * h, "PROGRAMMED IN 1992 ON AT .286 12MHZ.");
+                DrawFontCreditsLine(image, 3 * w, 13 * h, ". . . ENJOY OLDIES!!");
             }
-            Palette palette = GetPalette(File.ReadAllBytes(Path.Combine(ResDir, "year_devs.pal")));
+            Palette palette = GetPalette(File.ReadAllBytes(Path.Combine(ResDir, "credits.pal")));
             Bitmap bitmap = new Bitmap(width, height, 8) { PixelData = image, Palette = palette };
-            return bitmap;
+            return bitmap; // TODO: check palette against DOSBox
         }
 
-        private static void DrawYearLine(byte[] image, int row, int col, string textLine)
+        private static void DrawFontCreditsLine(byte[] image, int x, int y, string textLine)
         {
+            int col = 0;
             byte[] asciiBytes = Encoding.ASCII.GetBytes(textLine);
             foreach (byte c in asciiBytes)
             {
-                int idx = Array.IndexOf(FontYearDevsCharCodes, c);
+                int idx = Array.IndexOf(FontCreditsCharCodes, c);
                 if (idx != -1)
                 {
-                    int dstX = col * FontYearDevsInfo.W;
-                    int dstY = row * FontYearDevsInfo.H;
-                    CopyPixels(FontYearDevs[idx], FontYearDevsInfo, image, BackgroundInfo.W, dstX, dstY);
+                    int dstX = x + col * FontCreditsInfo.W;
+                    int dstY = y;
+                    CopyPixels(FontCreditsDevs[idx], FontCreditsInfo, image, BackgroundInfo.W, dstX, dstY);
                 }
                 col++;
             }

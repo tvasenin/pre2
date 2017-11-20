@@ -49,7 +49,7 @@
     <None Include="res\motif.pal">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="res\year_devs.pal">
+    <None Include="res\credits.pal">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>
