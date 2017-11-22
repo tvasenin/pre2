@@ -31,6 +31,11 @@ namespace Pre2
         private static readonly byte[] LevelPals     = {   8,  10,   7,   6,   3,   5,   1,   4,   2,   2,  11,  11,  11,  12,   2,   1 }; // no pal #0 and #9!
         private static readonly char[] BackSuffixes  = {  '0', '0', '0', '1', '1', '1', '2', '3', '3', '0', '4', '4', '4', '5', '0', '2'};
 
+        private static readonly byte[][] LevelTilemaps = new byte[LevelSuffixes.Length][];
+        private static readonly ushort[][] LevelLuts = new ushort[LevelSuffixes.Length][];
+        private static readonly byte[][][] LevelLocalTiles = new byte[LevelSuffixes.Length][][];
+        private static readonly byte[][] LevelDescriptors = new byte[LevelSuffixes.Length][];
+
         private static readonly byte[][] FrontTiles = ReadTiles(SqzUnpacker.Unpack(Path.Combine(SqzDir, "FRONT.SQZ")), NumFrontTiles, DefaultTileInfo);
         private static readonly byte[][] UnionTiles = ReadTiles(SqzUnpacker.Unpack(Path.Combine(SqzDir, "UNION.SQZ")), NumUnionTiles, DefaultTileInfo);
 
@@ -65,6 +70,33 @@ namespace Pre2
                 PanelSprites = ReadTiles(input, 17, PanelSpritesInfo);
                 FontUnknown = ReadTiles(input, 10, FontUnknownInfo);
                 input.Read(UnknownAllFontsData, 0, UnknownAllFontsData.Length);
+            }
+
+            // Read all Levels
+            for (var levelIdx = 0; levelIdx < LevelSuffixes.Length; levelIdx++)
+            {
+                byte[] rawData = SqzUnpacker.Unpack(Path.Combine(SqzDir, "LEVEL" + LevelSuffixes[levelIdx] + ".SQZ"));
+                using (BinaryReader br = new BinaryReader(new MemoryStream(rawData, false)))
+                {
+                    int tilemapLength = LevelNumRows[levelIdx] * LevelTilesPerRow;
+                    byte[] tilemapBytes = new byte[tilemapLength];
+                    br.Read(tilemapBytes, 0, tilemapBytes.Length);
+                    LevelTilemaps[levelIdx] = tilemapBytes;
+                    ushort[] lut = new ushort[256];
+                    short maxLocalIdx = -1;
+                    for (var i = 0; i < lut.Length; i++)
+                    {
+                        ushort v = br.ReadUInt16();
+                        lut[i] = v;
+                        if (v < 256 && v > maxLocalIdx)
+                        {
+                            maxLocalIdx = (short) v;
+                        }
+                    }
+                    LevelLuts[levelIdx] = lut;
+                    LevelLocalTiles[levelIdx] = ReadTiles(br.BaseStream, maxLocalIdx + 1, DefaultTileInfo);
+                    LevelDescriptors[levelIdx] = br.ReadBytes(5029);
+                }
             }
         }
 
@@ -137,10 +169,7 @@ namespace Pre2
 
         public static Tilemap GetLevelTilemap(int levelIdx)
         {
-            byte[] rawData = SqzUnpacker.Unpack(Path.Combine(SqzDir, "LEVEL" + LevelSuffixes[levelIdx] + ".SQZ"));
-            int numRows = LevelNumRows[levelIdx];
-            Palette palette = GetLevelPalette(levelIdx);
-            return GenerateLevelTilemap(rawData, numRows, palette);
+            return GenerateLevelTilemap(levelIdx);
         }
 
         public static Bitmap GetYearBitmap()
@@ -389,27 +418,11 @@ namespace Pre2
             return devBitmap;
         }
 
-        private static Tilemap GenerateLevelTilemap(byte[] rawData, int numRows, Palette palette)
+        private static Tilemap GenerateLevelTilemap(int levelIdx)
         {
-            int tilemapLength = numRows * LevelTilesPerRow;
-            byte[] tilemapBytes = new byte[tilemapLength];
-            ushort[] lut = new ushort[256];
-            byte[][] localTiles;
-            using (BinaryReader br = new BinaryReader(new MemoryStream(rawData, false)))
-            {
-                br.Read(tilemapBytes, 0, tilemapBytes.Length);
-                short maxLocalIdx = -1;
-                for (var i = 0; i < lut.Length; i++)
-                {
-                    ushort v = br.ReadUInt16();
-                    lut[i] = v;
-                    if (v < 256 && v > maxLocalIdx)
-                    {
-                        maxLocalIdx = (short) v;
-                    }
-                }
-                localTiles = ReadTiles(br.BaseStream, maxLocalIdx + 1, DefaultTileInfo);
-            }
+            ushort[] lut = LevelLuts[levelIdx];
+            byte[][] localTiles = LevelLocalTiles[levelIdx];
+            Palette palette = GetLevelPalette(levelIdx);
 
             Tileset tileset = new Tileset(lut.Length, TileSide, TileSide, palette, new SequencePack(), null);
             // Fetch 256 tiles according to LUT
@@ -434,6 +447,9 @@ namespace Pre2
                 tileset.SetPixels(i + 1, tilePixels, pitch); // first tile index is 1!
             }
 
+            int numRows = LevelNumRows[levelIdx];
+            int tilemapLength = numRows * LevelTilesPerRow;
+            byte[] tilemapBytes = LevelTilemaps[levelIdx];
             Tile[] tiles = new Tile[tilemapLength];
             for (var i = 0; i < tilemapBytes.Length; i++)
             {
