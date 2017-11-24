@@ -75,7 +75,7 @@ namespace Pre2
         }
     }
 
-    public struct Item
+    public class Item
     {
         public Position Position;
         public short SpriteIdx;
@@ -89,7 +89,7 @@ namespace Pre2
         }
     }
 
-    public struct Platform
+    public class Platform
     {
         public Position Position;
         public short SpriteIdx;
@@ -150,8 +150,8 @@ namespace Pre2
         private readonly Gate[] gates = new Gate[20];
         private readonly ShiftingTileBlock[] shiftingTileBlocks = new ShiftingTileBlock[15];
         private Enemy[] enemies;
-        private ushort spriteOffsetItemPlatform;
-        private ushort spriteOffsetEnemy;
+        private short spriteOffsetItemPlatform;
+        private short spriteOffsetEnemy;
         private readonly Secret[] secrets = new Secret[80];
         private byte[] tileProps4;
         private readonly Item[] items = new Item[70];
@@ -184,8 +184,8 @@ namespace Pre2
                 }
                 byte[] enemydata = br.ReadBytes(2048);
                 enemies = Enemy.InitEnemies(enemydata);
-                spriteOffsetItemPlatform = br.ReadUInt16();
-                spriteOffsetEnemy = br.ReadUInt16();
+                spriteOffsetItemPlatform = br.ReadInt16();
+                spriteOffsetEnemy = br.ReadInt16();
                 for (var i = 0; i < secrets.Length; i++)
                 {
                     secrets[i] = new Secret(br);
@@ -201,6 +201,53 @@ namespace Pre2
                 }
                 kong = new Kong(br);
             }
+            FixSpriteIndices();
+        }
+
+        private void FixSpriteIndices()
+        {
+            short itemPlatformResultingOffset = (short) (53 - spriteOffsetItemPlatform);
+
+            // items
+            foreach (Item item in items)
+            {
+                if (item.SpriteIdx != -1)
+                {
+                    item.SpriteIdx += itemPlatformResultingOffset;
+                }
+            }
+
+            // platforms
+            foreach (Platform platform in platforms)
+            {
+                if (platform.SpriteIdx != -1)
+                {
+                    platform.SpriteIdx += itemPlatformResultingOffset;
+                }
+            }
+
+            short enemyResultingOffset = (short) (312 - spriteOffsetEnemy);
+
+            if (spriteOffsetItemPlatform != -1) // sic!
+            {
+                foreach (Enemy enemy in enemies)
+                {
+                    short spriteIdx = enemy.SpriteIdx;
+                    if (spriteIdx != -1)
+                    {
+                        if (spriteIdx >= spriteOffsetEnemy)
+                        {
+                            enemy.SpriteIdx += enemyResultingOffset;
+                        }
+                        else if (spriteIdx >= spriteOffsetItemPlatform)
+                        {
+                            enemy.SpriteIdx += itemPlatformResultingOffset;
+                        }
+                    }
+                }
+            }
+            spriteOffsetItemPlatform = 53;
+            spriteOffsetEnemy = 312;
         }
     }
 }
