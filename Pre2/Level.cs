@@ -149,7 +149,7 @@ namespace Pre2
         private readonly ushort[] idxFrontTiles = new ushort[256];
         private readonly Gate[] gates = new Gate[20];
         private readonly ShiftingTileBlock[] shiftingTileBlocks = new ShiftingTileBlock[15];
-        private byte[] enemyRaw;
+        private Enemy[] enemies;
         private ushort spriteOffsetItemPlatform;
         private ushort spriteOffsetEnemy;
         private readonly Secret[] secrets = new Secret[80];
@@ -182,7 +182,8 @@ namespace Pre2
                 {
                     shiftingTileBlocks[i] = new ShiftingTileBlock(br);
                 }
-                enemyRaw = br.ReadBytes(2048);
+                byte[] enemydata = br.ReadBytes(2048);
+                enemies = Enemy.InitEnemies(enemydata);
                 spriteOffsetItemPlatform = br.ReadUInt16();
                 spriteOffsetEnemy = br.ReadUInt16();
                 for (var i = 0; i < secrets.Length; i++)

@@ -55,6 +55,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="AssetConverter.cs" />
+    <Compile Include="Enemy.cs" />
     <Compile Include="Level.cs" />
     <Compile Include="Pre2.cs" />
     <Compile Include="SqzUnpacker.cs" />
