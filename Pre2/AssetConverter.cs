@@ -36,11 +36,11 @@ namespace Pre2
         private static readonly byte[][][] LevelLocalTiles = new byte[LevelSuffixes.Length][][];
         private static readonly byte[][] LevelDescriptors = new byte[LevelSuffixes.Length][];
 
-        private static readonly byte[][] FrontTiles = ReadTiles(SqzUnpacker.Unpack(Path.Combine(SqzDir, "FRONT.SQZ")), NumFrontTiles, DefaultTileInfo);
-        private static readonly byte[][] UnionTiles = ReadTiles(SqzUnpacker.Unpack(Path.Combine(SqzDir, "UNION.SQZ")), NumUnionTiles, DefaultTileInfo);
+        private static readonly byte[][] FrontTiles = ReadTiles(UnpackSqz("FRONT"), NumFrontTiles, DefaultTileInfo);
+        private static readonly byte[][] UnionTiles = ReadTiles(UnpackSqz("UNION"), NumUnionTiles, DefaultTileInfo);
 
         private static readonly SpriteData[] SpriteSetEntries = ReadSpriteSetEntries(Path.Combine(ResDir, "sprites.txt"), NumSprites);
-        private static readonly byte[][] SpriteImages = ReadSprites(SqzUnpacker.Unpack(Path.Combine(SqzDir, "SPRITES.SQZ")), SpriteSetEntries);
+        private static readonly byte[][] SpriteImages = ReadSprites(UnpackSqz("SPRITES"), SpriteSetEntries);
 
         private static readonly SpriteInfo BackgroundInfo = new SpriteInfo { W = 320, H = 200 };
         private static readonly SpriteInfo MapInfo = new SpriteInfo { W = 640, H = 200 };
@@ -61,7 +61,7 @@ namespace Pre2
         static AssetConverter()
         {
             // Read AllFonts
-            using (Stream input = new MemoryStream(SqzUnpacker.Unpack(Path.Combine(SqzDir, "ALLFONTS.SQZ"))))
+            using (Stream input = new MemoryStream(UnpackSqz("ALLFONTS")))
             {
                 FontCreditsDevs = ReadTiles(input, 41, FontCreditsInfo);
                 byte[] panelImageRaw = new byte[PanelImageInfo.W * PanelImageInfo.H / 2];
@@ -75,7 +75,7 @@ namespace Pre2
             // Read all Levels
             for (var levelIdx = 0; levelIdx < LevelSuffixes.Length; levelIdx++)
             {
-                byte[] rawData = SqzUnpacker.Unpack(Path.Combine(SqzDir, "LEVEL" + LevelSuffixes[levelIdx] + ".SQZ"));
+                byte[] rawData = UnpackSqz("LEVEL" + LevelSuffixes[levelIdx]);
                 using (BinaryReader br = new BinaryReader(new MemoryStream(rawData, false)))
                 {
                     int tilemapLength = LevelNumRows[levelIdx] * LevelTilesPerRow;
@@ -138,8 +138,8 @@ namespace Pre2
 
             string rawDir = CacheDir + "/RAW";
             Directory.CreateDirectory(rawDir);
-            File.WriteAllBytes(rawDir + "/SAMPLE.BIN",   SqzUnpacker.Unpack(SqzDir + "/SAMPLE.SQZ"));
-            File.WriteAllBytes(rawDir + "/KEYB.BIN",     SqzUnpacker.Unpack(SqzDir + "/KEYB.SQZ"));
+            File.WriteAllBytes(rawDir + "/SAMPLE.BIN", UnpackSqz("SAMPLE"));
+            File.WriteAllBytes(rawDir + "/KEYB.BIN",   UnpackSqz("KEYB"));
         }
 
         public static Palette GetLevelPalette(int levelIdx)
@@ -153,7 +153,7 @@ namespace Pre2
             int width = 320;
             int height = 200;
             int numBytesInput = width * height / 2; // 4 bpp
-            byte[] rawData = SqzUnpacker.Unpack(Path.Combine(SqzDir, "BACK" + BackSuffixes[levelIdx] + ".SQZ"));
+            byte[] rawData = UnpackSqz("BACK" + BackSuffixes[levelIdx]);
             if (rawData.Length != numBytesInput)
             {
                 Array.Resize(ref rawData, numBytesInput);
@@ -233,9 +233,13 @@ namespace Pre2
         private static void UnpackTrk(string resource)
         {
             string destFilename = Path.Combine(SoundDir, resource + ".mod");
-            string sqzFilename = Path.Combine(SqzDir, resource + ".TRK");
-            byte[] data = SqzUnpacker.Unpack(sqzFilename);
+            byte[] data = UnpackSqz(resource, "TRK");
             File.WriteAllBytes(destFilename, data);
+        }
+
+        private static byte[] UnpackSqz(string name, string extension = "SQZ")
+        {
+            return SqzUnpacker.Unpack(Path.Combine(SqzDir, name + "." + extension));
         }
 
         private static SpriteInfo GetSpritesheetInfo(SpriteData[] entries)
@@ -313,8 +317,7 @@ namespace Pre2
         private static void ConvertIndex8WithPalette(string resource)
         {
             string destFilename = Path.Combine(CacheDir, resource + ".png");
-            string sqzFilename = Path.Combine(SqzDir, resource + ".SQZ");
-            byte[] data = SqzUnpacker.Unpack(sqzFilename);
+            byte[] data = UnpackSqz(resource);
             ImageInfo imi = new ImageInfo(320, 200, 8, false, false, true);
             const int numPaletteEntries = 256;
             byte[] pal = new byte[numPaletteEntries * 3];
@@ -330,13 +333,7 @@ namespace Pre2
         private static void ConvertIndex4(string resource, byte[] pal, SpriteInfo imageInfo)
         {
             string destFilename = Path.Combine(CacheDir, resource + ".png");
-            string sqzFilename = Path.Combine(SqzDir, resource + ".SQZ");
-            ConvertIndex4(sqzFilename, destFilename, pal, imageInfo);
-        }
-
-        private static void ConvertIndex4(string sqzFilename, string destFilename, byte[] pal, SpriteInfo imageInfo)
-        {
-            byte[] rawData = SqzUnpacker.Unpack(sqzFilename);
+            byte[] rawData = UnpackSqz(resource);
             using (Stream input = new MemoryStream(rawData))
             {
                 ConvertIndex4(input, destFilename, pal, imageInfo);
@@ -359,7 +356,7 @@ namespace Pre2
 
         private static void ConvertTitle(string resource)
         {
-            byte[] data = SqzUnpacker.Unpack(Path.Combine(SqzDir, resource + ".SQZ"));
+            byte[] data = UnpackSqz(resource);
             ImageInfo imi = new ImageInfo(320, 200, 8, false, false, true);
             const int numPaletteEntries = 256;
             byte[] pal = new byte[numPaletteEntries * 3];
@@ -385,8 +382,8 @@ namespace Pre2
 
         public static Bitmap GetDevPhoto()
         {
-            byte[] planes01 = SqzUnpacker.Unpack(Path.Combine(SqzDir, "LEVELH.SQZ"));
-            byte[] planes02 = SqzUnpacker.Unpack(Path.Combine(SqzDir, "LEVELI.SQZ"));
+            byte[] planes01 = UnpackSqz("LEVELH");
+            byte[] planes02 = UnpackSqz("LEVELI");
 
             byte[] planes = new byte[planes01.Length + planes02.Length];
             Array.Copy(planes01, 0, planes, 0, planes01.Length);
