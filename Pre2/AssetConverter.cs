@@ -318,16 +318,12 @@ namespace Pre2
         {
             string destFilename = Path.Combine(CacheDir, resource + ".png");
             byte[] data = UnpackSqz(resource);
-            ImageInfo imi = new ImageInfo(320, 200, 8, false, false, true);
-            const int numPaletteEntries = 256;
-            byte[] pal = new byte[numPaletteEntries * 3];
-            byte[] indexBytes = new byte[imi.BytesPerRow * imi.Rows];
-            using (Stream input = new MemoryStream(data))
+            using (BinaryReader br = new BinaryReader(new MemoryStream(data, false)))
             {
-                input.Read(pal, 0, pal.Length);
-                input.Read(indexBytes, 0, indexBytes.Length);
+                byte[] pal = br.ReadBytes(256 * 3);
+                byte[] indexBytes = br.ReadBytes(BackgroundInfo.W * BackgroundInfo.H); // 8 bpp
+                WritePng8(destFilename, indexBytes, pal, BackgroundInfo);
             }
-            WritePng8(destFilename, indexBytes, pal, BackgroundInfo);
         }
 
         private static void ConvertIndex4(string resource, byte[] pal, SpriteInfo imageInfo)
