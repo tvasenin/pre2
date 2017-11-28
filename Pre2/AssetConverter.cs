@@ -105,11 +105,6 @@ namespace Pre2
             Directory.CreateDirectory(CacheDir);
             ConvertAllFonts();
 
-            ConvertIndex8WithPalette("CASTLE");
-            ConvertIndex8WithPalette("MENU");
-            ConvertIndex8WithPalette("THEEND");
-            ConvertIndex8WithPalette("TITUS");
-
             // Palette for MENU2 is concatenated at the end of the image (using a copy for convenience)!
             ConvertIndex4("GAMEOVER", File.ReadAllBytes(Path.Combine(ResDir, "gameover.pal")), BackgroundInfo);
             ConvertIndex4("MAP",      File.ReadAllBytes(Path.Combine(ResDir, "map.pal")),      MapInfo);
@@ -170,6 +165,26 @@ namespace Pre2
         public static Tilemap GetLevelTilemap(int levelIdx)
         {
             return GenerateLevelTilemap(levelIdx);
+        }
+
+        public static Bitmap GetCastleBitmap()
+        {
+            return GetIndex8WithPaletteBackground("CASTLE");
+        }
+
+        public static Bitmap GetMenuBitmap()
+        {
+            return GetIndex8WithPaletteBackground("MENU");
+        }
+
+        public static Bitmap GetTheEndBitmap()
+        {
+            return GetIndex8WithPaletteBackground("THEEND");
+        }
+
+        public static Bitmap GetTitusBitmap()
+        {
+            return GetIndex8WithPaletteBackground("TITUS");
         }
 
         public static Bitmap GetYearBitmap()
@@ -314,15 +329,19 @@ namespace Pre2
             return sprites;
         }
 
-        private static void ConvertIndex8WithPalette(string resource)
+        private static Bitmap GetIndex8WithPaletteBackground(string resource)
         {
-            string destFilename = Path.Combine(CacheDir, resource + ".png");
             byte[] data = UnpackSqz(resource);
             using (BinaryReader br = new BinaryReader(new MemoryStream(data, false)))
             {
                 byte[] pal = br.ReadBytes(256 * 3);
                 byte[] indexBytes = br.ReadBytes(BackgroundInfo.W * BackgroundInfo.H); // 8 bpp
-                WritePng8(destFilename, indexBytes, pal, BackgroundInfo);
+                Bitmap bitmap = new Bitmap(BackgroundInfo.W, BackgroundInfo.H, 8)
+                {
+                    PixelData = indexBytes,
+                    Palette = GetPalette(pal)
+                };
+                return bitmap;
             }
         }
 
