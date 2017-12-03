@@ -67,6 +67,8 @@ namespace Pre2
 
             window = Window.Create(null, WindowFlags.Vsync | WindowFlags.S5);
 
+            ShowTitusScreen();
+
             int levelIdx = 0;
             PlayLevel(levelIdx);
 
@@ -97,6 +99,19 @@ namespace Pre2
                 posForegroundY += 3 * speedY;
                 foreground.SetPosition((int)posForegroundX, (int)posForegroundY);
 
+                window.DrawFrame(frame++);
+            }
+        }
+
+        private static void ShowTitusScreen()
+        {
+            engine.BackgroundBitmap = AssetConverter.GetTitusBitmap();
+            while (window.Process())
+            {
+                if (window.GetInput(Input.Down))
+                {
+                    break;
+                }
                 window.DrawFrame(frame++);
             }
         }
