@@ -14,6 +14,8 @@ namespace Pre2
         static float posForegroundY;
         static Layer foreground;
 
+        private static int frame;
+
         private static float UpdateSpeedCoord(float speed, int dir)
         {
             switch (dir)
@@ -60,25 +62,18 @@ namespace Pre2
             float speedX = 0;
             float speedY = 0;
 
-            void UpdateSpeed(int dirX, int dirY)
-            {
-                speedX = UpdateSpeedCoord(speedX, dirX);
-                speedY = UpdateSpeedCoord(speedY, dirY);
-            }
-
             AssetConverter.PrepareAllAssets();
-
-            int frame = 0;
 
             engine = Engine.Init(Hres, Vres, 1, 0, 0);
             foreground = engine.Layers[0];
-
             engine.LoadPath = AssetConverter.CacheDir;
+
+            window = Window.Create(null, WindowFlags.Vsync | WindowFlags.S5);
+
             int levelIdx = 0;
             SetLevelTilemap(levelIdx);
             SetLevelBackground(levelIdx);
 
-            window = Window.Create(null, WindowFlags.Vsync | WindowFlags.S5);
             while (window.Process())
             {
                 int dirX = 0;
@@ -87,18 +82,17 @@ namespace Pre2
                 if (window.GetInput(Input.Left))  { dirX--; }
                 if (window.GetInput(Input.Down))  { dirY++; }
                 if (window.GetInput(Input.Up))    { dirY--; }
-                UpdateSpeed(dirX, dirY);
+                speedX = UpdateSpeedCoord(speedX, dirX);
+                speedY = UpdateSpeedCoord(speedY, dirY);
 
                 posForegroundX += 3 * speedX;
                 posForegroundY += 3 * speedY;
                 foreground.SetPosition((int)posForegroundX, (int)posForegroundY);
 
-                window.DrawFrame(frame);
-                frame++;
+                window.DrawFrame(frame++);
             }
 
             engine.Deinit();
-
             return 0;
         }
     }
