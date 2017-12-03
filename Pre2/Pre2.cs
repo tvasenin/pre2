@@ -59,9 +59,6 @@ namespace Pre2
 
         static int Main()
         {
-            float speedX = 0;
-            float speedY = 0;
-
             AssetConverter.PrepareAllAssets();
 
             engine = Engine.Init(Hres, Vres, 1, 0, 0);
@@ -71,6 +68,17 @@ namespace Pre2
             window = Window.Create(null, WindowFlags.Vsync | WindowFlags.S5);
 
             int levelIdx = 0;
+            PlayLevel(levelIdx);
+
+            engine.Deinit();
+            return 0;
+        }
+
+        private static void PlayLevel(int levelIdx)
+        {
+            float speedX = 0;
+            float speedY = 0;
+
             SetLevelTilemap(levelIdx);
             SetLevelBackground(levelIdx);
 
@@ -91,9 +99,6 @@ namespace Pre2
 
                 window.DrawFrame(frame++);
             }
-
-            engine.Deinit();
-            return 0;
         }
     }
 }
