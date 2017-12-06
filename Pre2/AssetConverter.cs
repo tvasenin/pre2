@@ -34,7 +34,7 @@ namespace Pre2
         private static readonly byte[][] LevelTilemaps = new byte[LevelSuffixes.Length][];
         private static readonly ushort[][] LevelLuts = new ushort[LevelSuffixes.Length][];
         private static readonly byte[][][] LevelLocalTiles = new byte[LevelSuffixes.Length][][];
-        private static readonly byte[][] LevelDescriptors = new byte[LevelSuffixes.Length][];
+        public static readonly byte[][] LevelDescriptors = new byte[LevelSuffixes.Length][];
 
         private static readonly byte[][] FrontTiles = ReadTiles(UnpackSqz("FRONT"), NumFrontTiles, DefaultTileInfo);
         private static readonly byte[][] UnionTiles = ReadTiles(UnpackSqz("UNION"), NumUnionTiles, DefaultTileInfo);

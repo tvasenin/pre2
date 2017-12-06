@@ -138,6 +138,7 @@ namespace Pre2
 
     public class Level
     {
+        public int LevelIdx;
         private byte[] tileProps1;
         private byte[] tileProps2;
         private byte[] tileProps3;
@@ -158,8 +159,12 @@ namespace Pre2
         private readonly Platform[] platforms = new Platform[16];
         private Kong kong;
 
-        public Level(byte[] data)
+        public Level(int levelIdx) : this(levelIdx, AssetConverter.LevelDescriptors[levelIdx])
+        { }
+
+        private Level(int levelIdx, byte[] data)
         {
+            LevelIdx = levelIdx;
             using (BinaryReader br = new BinaryReader(new MemoryStream(data, false)))
             {
                 tileProps1 = br.ReadBytes(256);
