@@ -60,6 +60,7 @@
     <Compile Include="Pre2.cs" />
     <Compile Include="SqzUnpacker.cs" />
     <Compile Include="Tilengine.cs" />
+    <Compile Include="Prng.cs" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="Pngcs.dll" />
