@@ -48,10 +48,10 @@ namespace Pre2
         private static readonly byte[] FontCreditsCharCodes = Encoding.ASCII.GetBytes("0123456789!?.$_ABCDEFGHIJKLMNOPQRSTUVWXYZ");
         private static readonly SpriteInfo FontCreditsInfo  = new SpriteInfo { W =  8, H = 12 };
         private static readonly SpriteInfo PanelSpritesInfo = new SpriteInfo { W = 16, H = 12 };
-        private static readonly SpriteInfo FontUnknownInfo  = new SpriteInfo { W = 16, H = 11 };
+        private static readonly SpriteInfo FontFinScoreInfo = new SpriteInfo { W = 16, H = 11 };
         private static readonly byte[][] FontCreditsDevs;
         private static readonly byte[][] PanelSprites;
-        private static readonly byte[][] FontUnknown;
+        private static readonly byte[][] FontFinScore;
 
         private static readonly SpriteInfo PanelImageInfo = new SpriteInfo { W = 320, H = 23 };
         private static readonly byte[] PanelImage;
@@ -68,7 +68,7 @@ namespace Pre2
                 input.Read(panelImageRaw, 0, panelImageRaw.Length);
                 PanelImage = ConvertIndex4ToIndex8Bytes(ConvertPlanarIndex4Bytes(panelImageRaw));
                 PanelSprites = ReadTiles(input, 17, PanelSpritesInfo);
-                FontUnknown = ReadTiles(input, 10, FontUnknownInfo);
+                FontFinScore = ReadTiles(input, 10, FontFinScoreInfo);
                 input.Read(UnknownAllFontsData, 0, UnknownAllFontsData.Length);
             }
 
@@ -483,7 +483,7 @@ namespace Pre2
 
             WritePng8(Path.Combine(CacheDir, "panel.png"), PanelImage, palDefault, PanelImageInfo);
             GenerateTileSet(PanelSprites, palDefault, PanelSprites.Length, PanelSpritesInfo, CacheDir, "PanelSprites");
-            GenerateTileSet(FontUnknown, palDefault, FontUnknown.Length, FontUnknownInfo, CacheDir, "FontUnknown");
+            GenerateTileSet(FontFinScore, palDefault, FontFinScore.Length, FontFinScoreInfo, CacheDir, "FontFinScore");
 
             string rawDir = CacheDir + "/RAW";
             Directory.CreateDirectory(rawDir);
