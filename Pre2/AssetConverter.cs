@@ -13,7 +13,17 @@ namespace Pre2
         private const string SqzDir = "sqz";
         public const string CacheDir = "cache";
         private const string ResDir = "res";
-        private const string SoundDir = CacheDir + "/audio";
+
+        public enum Track
+        {
+            Boula, Bravo, Carte, Code, Final, Glace, Kool, Mines, Monster, Mystery, Pres, Presenta
+        }
+
+        private static readonly Track[] LevelTracks =
+        {
+            Track.Mines, Track.Mines, Track.Pres, Track.Pres, Track.Pres, Track.Monster, Track.Glace, Track.Glace, Track.Mystery, Track.Monster,
+            Track.Kool, Track.Kool, Track.Kool, Track.Mines, Track.Final, Track.Glace
+        };
 
         private const int TileSide = 16;
         private const int LevelTilesPerRow = 256;
@@ -116,20 +126,6 @@ namespace Pre2
             GenerateSpriteSet(LevelPalettes[0]);
 
             GenerateTileSet(FrontTiles, LevelPalettes[0], NumFrontTiles, DefaultTileInfo, CacheDir, "FRONT");
-
-            Directory.CreateDirectory(SoundDir);
-            UnpackTrk("BOULA");
-            UnpackTrk("BRAVO");
-            UnpackTrk("CARTE");
-            UnpackTrk("CODE");
-            UnpackTrk("FINAL");
-            UnpackTrk("GLACE");
-            UnpackTrk("KOOL");
-            UnpackTrk("MINES");
-            UnpackTrk("MONSTER");
-            UnpackTrk("MYSTERY");
-            UnpackTrk("PRES");
-            UnpackTrk("PRESENTA");
 
             string rawDir = CacheDir + "/RAW";
             Directory.CreateDirectory(rawDir);
@@ -245,11 +241,22 @@ namespace Pre2
             }
         }
 
-        private static void UnpackTrk(string resource)
+        public static byte[] GetBossTrackData()     { return GetTrackData(Track.Monster);  }
+        public static byte[] GetBravoTrackData()    { return GetTrackData(Track.Bravo);    }
+        public static byte[] GetGameOverTrackData() { return GetTrackData(Track.Boula);    }
+        public static byte[] GetIntroTrackData()    { return GetTrackData(Track.Presenta); }
+        public static byte[] GetMapTrackData()      { return GetTrackData(Track.Carte);    }
+        public static byte[] GetMotifTrackData()    { return GetTrackData(Track.Code);     }
+
+        public static byte[] GetLevelTrackData(int levelIdx)
         {
-            string destFilename = Path.Combine(SoundDir, resource + ".mod");
-            byte[] data = UnpackSqz(resource, "TRK");
-            File.WriteAllBytes(destFilename, data);
+            return GetTrackData(LevelTracks[levelIdx]);
+        }
+
+        private static byte[] GetTrackData(Track track)
+        {
+            string resource = track.ToString();
+            return UnpackSqz(resource.ToUpper(), "TRK");
         }
 
         private static byte[] UnpackSqz(string name, string extension = "SQZ")
