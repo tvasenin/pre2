@@ -4,15 +4,11 @@ namespace Pre2
 {
     class Pre2
     {
-        const int Hres = 320;
-        const int Vres = 200;
-
-        static Engine engine;
+        static Renderer renderer;
         static Window window;
 
         static float posForegroundX;
         static float posForegroundY;
-        static Layer foreground;
 
         private static int frame;
 
@@ -49,30 +45,29 @@ namespace Pre2
         static void SetLevelTilemap(int levelIdx)
         {
             Tilemap tilemap = AssetConverter.GetLevelTilemap(levelIdx);
-            foreground.SetMap(tilemap);
+            renderer.SetLevelTilemap(tilemap);
         }
 
         static void SetLevelBackground(int levelIdx)
         {
-            engine.BackgroundBitmap = AssetConverter.GetLevelBackground(levelIdx);
+            Bitmap bitmap = AssetConverter.GetLevelBackground(levelIdx);
+            renderer.SetBackgroundBitmap(bitmap);
         }
 
         static int Main()
         {
             AssetConverter.PrepareAllAssets();
 
-            engine = Engine.Init(Hres, Vres, 1, 0, 0);
-            foreground = engine.Layers[0];
-            engine.LoadPath = AssetConverter.CacheDir;
+            renderer = Renderer.Instance;
 
-            window = Window.Create(null, WindowFlags.Vsync | WindowFlags.S5);
+            window = renderer.Window;
 
             ShowTitusScreen();
 
             int levelIdx = 0;
             PlayLevel(levelIdx);
 
-            engine.Deinit();
+            renderer.Engine.Deinit();
             return 0;
         }
 
@@ -97,7 +92,7 @@ namespace Pre2
 
                 posForegroundX += 3 * speedX;
                 posForegroundY += 3 * speedY;
-                foreground.SetPosition((int)posForegroundX, (int)posForegroundY);
+                renderer.SetForegroundPosition((int)posForegroundX, (int)posForegroundY);
 
                 window.DrawFrame(frame++);
             }
@@ -105,7 +100,7 @@ namespace Pre2
 
         private static void ShowTitusScreen()
         {
-            engine.BackgroundBitmap = AssetConverter.GetTitusBitmap();
+            renderer.SetBackgroundBitmap(AssetConverter.GetTitusBitmap());
             while (window.Process())
             {
                 if (window.GetInput(Input.Down))

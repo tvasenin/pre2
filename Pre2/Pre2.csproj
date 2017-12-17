@@ -59,6 +59,7 @@
     <Compile Include="GameSession.cs" />
     <Compile Include="Level.cs" />
     <Compile Include="Pre2.cs" />
+    <Compile Include="Renderer.cs" />
     <Compile Include="SqzUnpacker.cs" />
     <Compile Include="Tilengine.cs" />
     <Compile Include="Prng.cs" />
